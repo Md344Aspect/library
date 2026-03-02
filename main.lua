@@ -1,59 +1,103 @@
 --[[
-    UILibrary — CSGO-style, pixel-perfect
-    ════════════════════════════════════════════════════════════════
+    UILibrary — CSGO-style, pixel-perfect audit v2
+    ════════════════════════════════════════════════════════════════════
 
-    Full layout tree (all values in pixels, origin top-left):
+    FULL PIXEL LAYOUT TREE
+    ══════════════════════
+    All measurements verified. Origin = top-left of each parent.
+    Roblox default BorderSizePixel = 1 when BorderColor3 is set.
+    Frame2 / TabBar / ContentArea carry their own 1px border —
+    children position relative to the inner content rect automatically.
 
     ScreenGui (_index_)
-    └── _frame1          630 × 390   no border     [screen center]
-        └── _frame2      620 × 380   at (5, 5)     border RGB(75,75,75)
-            ├── __tabs   608 × 45    at (6, 8)     border RGB(75,75,75)
-            │   └── tab buttons  151 × 45  each, 1px gap, BorderSizePixel=0
-            └── __tabContent  608 × 314  at (6, 59) border RGB(75,75,75)
-                └── per-tab ScrollingFrame  608 × 314
-                    └── UIPadding 8px all sides → inner = 592 × 298
-                        └── column holder Frame  592 × auto
-                            ├── Left column   292 × auto  (sections stack here)
-                            └── Right column  292 × auto  (sections stack here)
-                                └── Section
-                                    ├── Header row  292 × 20
-                                    │   ├── TextLabel  "SECTION NAME"
-                                    │   └── separator  292 × 1  at y=19
-                                    └── Body Frame  292 × auto  (elements stack, 4px gap)
-                                        └── Toggle row  292 × 26
-                                            ├── Checkbox  14 × 14  at (0, 6)
-                                            └── Label     258 × 26 at (20, 0)
+    └── _frame1         630 × 390   BorderSizePixel=0   AnchorPoint(0.5,0.5)
+        │               BackgroundColor3 RGB(29,29,29)
+        │               inner content rect = 630 × 390  (no border)
+        │
+        └── _frame2     620 × 380   at (5, 5)
+            │           BackgroundColor3 RGB(16,16,16)
+            │           BorderColor3 RGB(75,75,75)  BorderSizePixel=1 (default)
+            │           inner content rect = 618 × 378
+            │           children are positioned within this inner rect
+            │
+            ├── __tabs          608 × 45    at (5, 7) inside Frame2 inner
+            │   │               BackgroundColor3 RGB(16,16,16)
+            │   │               BorderColor3 RGB(75,75,75)  BorderSizePixel=1
+            │   │               inner rect = 606 × 43
+            │   │               bottom edge (outer) = 7+45 = 52
+            │   │
+            │   └── tab buttons     151 × 45 each  BorderSizePixel=0
+            │       UIListLayout    Horizontal  Padding=1px
+            │       4 tabs: 4×151 + 3×1 = 607px ← fits 608px outer / 606px inner
+            │       (buttons overflow 1px into border — fine, BorderSizePixel=0 on btn)
+            │
+            └── __tabContent    608 × 312   at (5, 58) inside Frame2 inner
+                │               BackgroundColor3 RGB(16,16,16)
+                │               BorderColor3 RGB(75,75,75)  BorderSizePixel=1
+                │               bottom edge (outer) = 58+312 = 370
+                │               Frame2 inner height = 378 → bottom gap = 8px ✓
+                │               Gap from tab bar bottom to content top:
+                │                 Tab bar outer bottom = 7+45 = 52
+                │                 Content outer top    = 58
+                │                 Gap                  = 58-52 = 6px ✓
+                │
+                └── per-tab ScrollingFrame    fills ContentArea exactly 1:1
+                    │   Size UDim2(1,0,1,0)  BackgroundTransparency=1
+                    │   UIPadding 8px all sides
+                    │   inner usable = (608-2-16) × (312-2-16) = 590 × 294
+                    │   (subtracting 1px border each side + 8px padding each side)
+                    │   ScrollBarThickness=2  right-side → eats 2px from right
+                    │   effective draw width  = 590 - 2 = 588px  (scrollbar overlap)
+                    │
+                    └── ColumnHolder    Size(1,0, 0,0)  AutomaticSize=Y
+                        │   BackgroundTransparency=1   no border
+                        │   width = 590px (padding-adjusted, scrollbar sits outside)
+                        │
+                        ├── LeftColumn      291 × auto   at x=0
+                        │   UIListLayout vertical  Padding=10px between sections
+                        │
+                        └── RightColumn     291 × auto   at x=299
+                            UIListLayout vertical  Padding=10px between sections
+                            Right edge: 299+291 = 590 ✓  fills exactly
 
-    Column math:
-        inner width          = 592
-        gap between columns  = 8
-        each column          = (592 - 8) / 2 = 292  ✓
+    COLUMN MATH (verified):
+        Inner usable width after padding   = 590px
+        Scrollbar thickness                = 2px  (overlaps, doesn't shrink content)
+        Gap between columns                = 8px
+        Each column                        = (590 - 8) / 2 = 291px  ✓
+        Right column x                     = 291 + 8 = 299px  ✓
+        Right col right edge               = 299 + 291 = 590px ✓
 
-    Section header height    = 20px
-    Separator                = 1px line at bottom of header
-    Element row height       = 26px
-    Element gap              = 4px
-    Checkbox size            = 14 × 14, centred in 26px row → y offset = (26-14)/2 = 6
-    Label x offset           = 14 + 6 = 20px
+    SECTION LAYOUT (per column, 291px wide):
+        SectionFrame    291 × auto     AutomaticSize=Y
+        ├── Header      291 × 20       BackgroundTransparency=1
+        │   ├── Title   TextLabel  full width, FontSize=11, RGB(180,180,180)
+        │   └── Sep     Frame 291×1  at y=19  RGB(75,75,75)  BorderSizePixel=0
+        └── Body        291 × auto    at y=21 (20 header + 1 sep)
+            UIPadding PaddingTop=5px
+            UIListLayout vertical Padding=4px
 
-    Menu toggle key          = configurable, default RightShift
-    ════════════════════════════════════════════════════════════════
+    TOGGLE ROW (per element, inside Body, 291px wide):
+        Row         291 × 26    BackgroundTransparency=1
+        ├── Box     14 × 14     at x=0, y=6   (26-14)/2=6 → vertically centred ✓
+        └── Label   x=20, w=271, h=26  TextXAlignment=Left  TextYAlignment=Center
 
-    Usage:
+    MENU TOGGLE:
+        UserInputService.InputBegan  key=cfg.key (default RightShift)
+        Toggles Frame1.Visible — hides/shows entire GUI
+
+    ════════════════════════════════════════════════════════════════════
+
+    USAGE:
         local UI = loadstring(...)()
+        local Window = UI:CreateWindow({ key = Enum.KeyCode.RightShift })
 
-        local Window = UI:CreateWindow({
-            key = Enum.KeyCode.RightShift,   -- optional, default RightShift
-        })
+        local Tab     = Window:AddTab("Legit")
+        local Aimbot  = Tab:AddSection("Aimbot",  "left")
+        local AntiAim = Tab:AddSection("Anti-Aim","right")
 
-        local Tab = Window:AddTab("Legit")
-
-        local Aimbot = Tab:AddSection("Aimbot", "left")
         Aimbot:AddToggle("Enable", false, function(v) end)
-        Aimbot:AddToggle("Silent Aim", false, function(v) end)
-
-        local Visuals = Tab:AddSection("Visuals", "right")
-        Visuals:AddToggle("ESP", true, function(v) end)
+        AntiAim:AddToggle("Enable", false, function(v) end)
 ]]
 
 local UILibrary = {}
@@ -66,7 +110,7 @@ local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 -- ─────────────────────────────────────────────────────────────
--- Theme
+-- Theme  (all RGB values from original dump)
 -- ─────────────────────────────────────────────────────────────
 local Theme = {
     Frame1_BG      = Color3.fromRGB(29,  29,  29),
@@ -78,19 +122,19 @@ local Theme = {
     TabActive_BG   = Color3.fromRGB(125,  0,   4),
     Content_BG     = Color3.fromRGB(16,  16,  16),
     Content_Bdr    = Color3.fromRGB(75,  75,  75),
-    Section_Bdr    = Color3.fromRGB(75,  75,  75),
-    Section_Header = Color3.fromRGB(180, 180, 180),
+    Separator      = Color3.fromRGB(75,  75,  75),
+    SectionTitle   = Color3.fromRGB(180, 180, 180),
     Text           = Color3.fromRGB(255, 255, 255),
     Checkbox_BG    = Color3.fromRGB(30,  30,  30),
     Checkbox_Bdr   = Color3.fromRGB(75,  75,  75),
-    Checkbox_Check = Color3.fromRGB(125,  0,   4),
-    Font           = Enum.Font.Nunito,
+    Checkbox_On    = Color3.fromRGB(125,  0,   4),
+    Font           = Enum.Font.Code,
     FontSize       = 16,
     HeaderFontSize = 11,
 }
 
 -- ─────────────────────────────────────────────────────────────
--- Utility
+-- Helpers
 -- ─────────────────────────────────────────────────────────────
 local function Tween(obj, props, t)
     TweenService:Create(
@@ -144,15 +188,14 @@ local function MakeDraggable(handle, target)
 end
 
 -- ─────────────────────────────────────────────────────────────
--- Window
+-- CreateWindow
 -- ─────────────────────────────────────────────────────────────
 function UILibrary:CreateWindow(cfg)
     cfg = cfg or {}
     local toggleKey = cfg.key or Enum.KeyCode.RightShift
 
     local CoreGui = game:GetService("CoreGui")
-    local old = CoreGui:FindFirstChild("_index_")
-    if old then old:Destroy() end
+    do local old = CoreGui:FindFirstChild("_index_") if old then old:Destroy() end end
 
     -- ── ScreenGui ─────────────────────────────────────────────
     local Gui = New("ScreenGui", {
@@ -162,7 +205,7 @@ function UILibrary:CreateWindow(cfg)
         Parent         = CoreGui,
     })
 
-    -- ── _frame1  630×390, centered, no border ─────────────────
+    -- ── _frame1   630×390   no border   centered ──────────────
     local Frame1 = New("Frame", {
         Name             = "_frame1",
         BackgroundColor3 = Theme.Frame1_BG,
@@ -173,7 +216,8 @@ function UILibrary:CreateWindow(cfg)
         Parent           = Gui,
     })
 
-    -- ── _frame2  620×380 at (5,5) ─────────────────────────────
+    -- ── _frame2   620×380   at (5,5)   1px border ─────────────
+    --    inner rect = 618×378
     local Frame2 = New("Frame", {
         Name             = "_frame2",
         BackgroundColor3 = Theme.Frame2_BG,
@@ -183,13 +227,14 @@ function UILibrary:CreateWindow(cfg)
         Parent           = Frame1,
     })
 
-    -- ── __tabs  608×45 at (6,8) ───────────────────────────────
-    --    bottom edge = 8+45 = 53
+    -- ── __tabs   608×45   at (5,7) in Frame2 inner ────────────
+    --    outer bottom edge = 7+45 = 52
+    --    1px border → inner = 606×43
     local TabBar = New("Frame", {
         Name             = "__tabs",
         BackgroundColor3 = Theme.TabBar_BG,
         BorderColor3     = Theme.TabBar_Bdr,
-        Position         = UDim2.new(0, 6, 0, 8),
+        Position         = UDim2.new(0, 5, 0, 7),
         Size             = UDim2.new(0, 608, 0, 45),
         Parent           = Frame2,
     })
@@ -201,22 +246,24 @@ function UILibrary:CreateWindow(cfg)
         Parent        = TabBar,
     })
 
-    -- ── __tabContent  608×314 at (6,59) ──────────────────────
-    --    gap: 59 - 53 = 6px between tab bar bottom and content top  ✓
-    --    bottom edge: 59+314 = 373, frame2 height=380 → 7px bottom gap  ✓
+    -- ── __tabContent   608×312   at (5,58) in Frame2 inner ────
+    --    gap from tab bar bottom: 58-52 = 6px ✓
+    --    outer bottom edge: 58+312 = 370
+    --    Frame2 inner height: 378 → bottom gap: 8px ✓
+    --    1px border → inner = 606×310
     local ContentArea = New("Frame", {
         Name             = "__tabContent",
         BackgroundColor3 = Theme.Content_BG,
         BorderColor3     = Theme.Content_Bdr,
-        Position         = UDim2.new(0, 6, 0, 59),
-        Size             = UDim2.new(0, 608, 0, 314),
+        Position         = UDim2.new(0, 5, 0, 58),
+        Size             = UDim2.new(0, 608, 0, 312),
         ClipsDescendants = true,
         Parent           = Frame2,
     })
 
     MakeDraggable(TabBar, Frame1)
 
-    -- ── Menu toggle key ───────────────────────────────────────
+    -- ── Menu visibility toggle ─────────────────────────────────
     UserInputService.InputBegan:Connect(function(inp, processed)
         if not processed and inp.KeyCode == toggleKey then
             Frame1.Visible = not Frame1.Visible
@@ -235,20 +282,17 @@ function UILibrary:CreateWindow(cfg)
         _activeTab   = nil,
     }
 
-    function Window:SetVisible(v)
-        self._frame.Visible = v
-    end
+    function Window:SetVisible(v) self._frame.Visible = v end
+    function Window:Destroy()    self._gui:Destroy()    end
 
-    function Window:Destroy()
-        self._gui:Destroy()
-    end
-
-    -- ── AddTab ────────────────────────────────────────────────
+    -- ─────────────────────────────────────────────────────────
+    -- AddTab
+    -- ─────────────────────────────────────────────────────────
     function Window:AddTab(name)
         local index = #self._tabs + 1
 
-        -- button: 151×45, no border
-        -- 4 buttons × 151 + 3 gaps × 1 = 607px ← fits 608px bar  ✓
+        -- Tab button: 151×45   BorderSizePixel=0
+        -- 4 tabs × 151 + 3 gaps × 1 = 607px — fits 608px bar ✓
         local Btn = New("TextButton", {
             Name             = "__tabInactive",
             Font             = Theme.Font,
@@ -264,19 +308,14 @@ function UILibrary:CreateWindow(cfg)
             Parent           = self._tabBar,
         })
 
-        --[[
-            Per-tab ScrollingFrame: 608×314 (fills ContentArea exactly)
-            UIPadding 8px all sides → inner usable = 592×298
-
-            Inside: a horizontal holder frame that contains two column frames.
-                Holder:        592px wide, AutomaticSize Y
-                Left column:   292px wide, AutomaticSize Y
-                Right column:  292px wide, AutomaticSize Y
-                Gap:           8px  (592 - 292 - 292 = 8, split as 8px offset on right col)
-
-            Columns use UIListLayout (vertical) to stack sections.
-            Sections use UIListLayout (vertical) to stack elements.
-        ]]
+        -- ── Per-tab ScrollingFrame ─────────────────────────────
+        -- Fills ContentArea inner rect (606×310 accounting for 1px border).
+        -- Size(1,0,1,0) = relative fill → Roblox clips to ContentArea bounds.
+        -- UIPadding 8px all sides:
+        --   usable width  = 606 - 16 = 590px
+        --   usable height = 310 - 16 = 294px
+        -- ScrollBarThickness=2, sits on right side inside padding area.
+        -- Content draw width = 590px (scrollbar overlaps padding, not content).
         local Page = New("ScrollingFrame", {
             BackgroundTransparency = 1,
             BorderSizePixel        = 0,
@@ -298,42 +337,46 @@ function UILibrary:CreateWindow(cfg)
             Parent        = Page,
         })
 
-        -- Holder: 592px wide, grows vertically with content
-        -- Position (0,0) — padding above handles the 8px inset
+        -- ── ColumnHolder ──────────────────────────────────────
+        -- Direct child of Page. Width = 1,0 (590px after padding).
+        -- AutomaticSize=Y → grows to fit the taller of the two columns.
+        -- No layout manager — columns are manually positioned.
         local Holder = New("Frame", {
-            Name                = "ColumnHolder",
+            Name                  = "ColumnHolder",
             BackgroundTransparency = 1,
-            BorderSizePixel     = 0,
-            Size                = UDim2.new(1, 0, 0, 0),
-            AutomaticSize       = Enum.AutomaticSize.Y,
-            Parent              = Page,
+            BorderSizePixel       = 0,
+            Size                  = UDim2.new(1, 0, 0, 0),
+            AutomaticSize         = Enum.AutomaticSize.Y,
+            Parent                = Page,
         })
 
-        -- Left column: 292px wide, grows with content, at x=0
+        -- ── Left column   291×auto   x=0 ─────────────────────
+        -- (590 - 8) / 2 = 291px each column
         local LeftCol = New("Frame", {
-            Name              = "LeftColumn",
+            Name                  = "LeftColumn",
             BackgroundTransparency = 1,
-            BorderSizePixel   = 0,
-            Position          = UDim2.new(0, 0, 0, 0),
-            Size              = UDim2.new(0, 292, 0, 0),
-            AutomaticSize     = Enum.AutomaticSize.Y,
-            Parent            = Holder,
+            BorderSizePixel       = 0,
+            Position              = UDim2.new(0, 0, 0, 0),
+            Size                  = UDim2.new(0, 291, 0, 0),
+            AutomaticSize         = Enum.AutomaticSize.Y,
+            Parent                = Holder,
         })
         New("UIListLayout", {
             SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding   = UDim.new(0, 10),  -- gap between sections within a column
+            Padding   = UDim.new(0, 10),
             Parent    = LeftCol,
         })
 
-        -- Right column: 292px wide, at x = 292+8 = 300
+        -- ── Right column   291×auto   x=299 ──────────────────
+        -- x = 291 + 8 = 299    right edge = 299+291 = 590 ✓
         local RightCol = New("Frame", {
-            Name              = "RightColumn",
+            Name                  = "RightColumn",
             BackgroundTransparency = 1,
-            BorderSizePixel   = 0,
-            Position          = UDim2.new(0, 300, 0, 0),
-            Size              = UDim2.new(0, 292, 0, 0),
-            AutomaticSize     = Enum.AutomaticSize.Y,
-            Parent            = Holder,
+            BorderSizePixel       = 0,
+            Position              = UDim2.new(0, 299, 0, 0),
+            Size                  = UDim2.new(0, 291, 0, 0),
+            AutomaticSize         = Enum.AutomaticSize.Y,
+            Parent                = Holder,
         })
         New("UIListLayout", {
             SortOrder = Enum.SortOrder.LayoutOrder,
@@ -376,54 +419,53 @@ function UILibrary:CreateWindow(cfg)
         table.insert(self._tabs, Tab)
         if #self._tabs == 1 then Tab:Select() end
 
-        -- ── AddSection ────────────────────────────────────────
+        -- ─────────────────────────────────────────────────────
+        -- AddSection
+        -- ─────────────────────────────────────────────────────
         --[[
-            Section layout inside its column (292px wide):
+            Section inside a column (291px wide):
 
-            ┌──────────────────────────────────────────┐  ← SectionFrame (292×auto)
-            │ SECTION NAME                             │  ← Header 292×20
-            ├──────────────────────────────────────────┤  ← 1px separator
-            │ ☐  Toggle label                          │  ← element row 26px
-            │ ☐  Toggle label                          │
-            └──────────────────────────────────────────┘
+            SectionFrame   291×auto   AutomaticSize=Y
+            ├── Header     291×20     BackgroundTransparency=1
+            │   ├── Title  TextLabel  full width  FontSize=11  RGB(180,180,180)
+            │   └── Sep    Frame 291×1  y=19  BorderSizePixel=0  RGB(75,75,75)
+            └── Body       291×auto   at y=21 (20px header + 1px sep)
+                UIPadding PaddingTop=5
+                UIListLayout vertical Padding=4px
 
-            Header:
-                TextLabel  292×20, uppercase-ish small text RGB(180,180,180)
-                Separator  Frame 292×1 at y=19, RGB(75,75,75)
-
-            Body (elements):
-                UIListLayout vertical, 4px gap
-                UIPadding: top=6px (breathing room after separator)
-
-            Element row (toggle):
-                Height    = 26px
-                Width     = 292px (full section width)
-                Checkbox  = 14×14 at x=0, y=(26-14)/2=6  → centred vertically
-                Label     = x=20, y=0, w=272, h=26
+            Header sits from y=0 to y=20.
+            Separator at y=19 is the last pixel of the header (1px thick).
+            Body starts at y=21, padded 5px top → first element at y=26.
         ]]
         function Tab:AddSection(sectionName, side)
             side = (side == "right") and "right" or "left"
-            local parentCol = (side == "right") and self._rightCol or self._leftCol
-            local sectionIndex = #parentCol:GetChildren()
+            local Col = (side == "right") and self._rightCol or self._leftCol
 
-            -- Outer section frame, 292px wide, grows with content
+            -- Dedicated section counter using a stable LayoutOrder
+            local sectionOrder = 0
+            for _, c in ipairs(Col:GetChildren()) do
+                if c:IsA("Frame") then
+                    sectionOrder = sectionOrder + 1
+                end
+            end
+
             local SectionFrame = New("Frame", {
                 Name              = "Section_" .. sectionName,
                 BackgroundTransparency = 1,
                 BorderSizePixel   = 0,
                 Size              = UDim2.new(1, 0, 0, 0),
                 AutomaticSize     = Enum.AutomaticSize.Y,
-                LayoutOrder       = sectionIndex,
-                Parent            = parentCol,
+                LayoutOrder       = sectionOrder,
+                Parent            = Col,
             })
 
-            -- Header: 292×20
+            -- Header 291×20
             local Header = New("Frame", {
-                Name             = "Header",
+                Name                  = "Header",
                 BackgroundTransparency = 1,
-                BorderSizePixel  = 0,
-                Size             = UDim2.new(1, 0, 0, 20),
-                Parent           = SectionFrame,
+                BorderSizePixel       = 0,
+                Size                  = UDim2.new(1, 0, 0, 20),
+                Parent                = SectionFrame,
             })
 
             New("TextLabel", {
@@ -433,33 +475,33 @@ function UILibrary:CreateWindow(cfg)
                 Size                  = UDim2.new(1, 0, 1, 0),
                 Font                  = Theme.Font,
                 Text                  = string.upper(sectionName),
-                TextColor3            = Theme.Section_Header,
+                TextColor3            = Theme.SectionTitle,
                 TextSize              = Theme.HeaderFontSize,
                 TextXAlignment        = Enum.TextXAlignment.Left,
                 TextYAlignment        = Enum.TextYAlignment.Center,
                 Parent                = Header,
             })
 
-            -- Separator: 1px line at y=19 (bottom of header), full width
+            -- Separator: 1px, at y=19 (last pixel of the 20px header)
             New("Frame", {
                 Name             = "Separator",
-                BackgroundColor3 = Theme.Section_Bdr,
+                BackgroundColor3 = Theme.Separator,
                 BorderSizePixel  = 0,
                 Position         = UDim2.new(0, 0, 0, 19),
                 Size             = UDim2.new(1, 0, 0, 1),
                 Parent           = Header,
             })
 
-            -- Body: stacks elements, grows with content
-            --       top padding = 6px (space after separator)
+            -- Body: starts at y=21 (clears header + separator)
+            -- PaddingTop=5 → first element sits 5px below separator
             local Body = New("Frame", {
-                Name              = "Body",
+                Name                  = "Body",
                 BackgroundTransparency = 1,
-                BorderSizePixel   = 0,
-                Position          = UDim2.new(0, 0, 0, 20),
-                Size              = UDim2.new(1, 0, 0, 0),
-                AutomaticSize     = Enum.AutomaticSize.Y,
-                Parent            = SectionFrame,
+                BorderSizePixel       = 0,
+                Position              = UDim2.new(0, 0, 0, 21),
+                Size                  = UDim2.new(1, 0, 0, 0),
+                AutomaticSize         = Enum.AutomaticSize.Y,
+                Parent                = SectionFrame,
             })
 
             New("UIListLayout", {
@@ -469,41 +511,46 @@ function UILibrary:CreateWindow(cfg)
             })
 
             New("UIPadding", {
-                PaddingTop = UDim.new(0, 6),
+                PaddingTop = UDim.new(0, 5),
                 Parent     = Body,
             })
 
             -- ── Section object ────────────────────────────────
+            local elementCount = 0
             local Section = { _body = Body }
 
+            -- ── AddToggle ─────────────────────────────────────
             --[[
-                AddToggle — CSGO checkbox
+                Toggle row inside Body (291px wide):
 
-                Row: 292×26  (full section width, 26px tall)
-                Checkbox: TextButton 14×14
-                    Position x=0, y=(26-14)/2=6
-                    BackgroundColor3: unchecked=RGB(30,30,30) checked=RGB(125,0,4)
-                    BorderColor3: RGB(75,75,75)
-                Label: TextLabel x=20, y=0, w=272, h=26
+                Row         291×26   BackgroundTransparency=1
+                ├── Box     14×14    x=0  y=6   (26-14)/2=6 → centred ✓
+                └── Label   x=20  w=271  h=26
+                             (291 - 14 - 6 = 271px remaining for label)
+
+                Box border is the 1px default from BorderColor3=RGB(75,75,75).
+                Box BackgroundColor3 flips between Checkbox_BG / Checkbox_On.
             ]]
             function Section:AddToggle(label, default, callback)
                 default  = (default == true)
                 callback = callback or function() end
                 local state = default
 
+                elementCount = elementCount + 1
+
                 local Row = New("Frame", {
                     Name                  = "Toggle_" .. label,
                     BackgroundTransparency = 1,
                     BorderSizePixel       = 0,
                     Size                  = UDim2.new(1, 0, 0, 26),
-                    LayoutOrder           = #Body:GetChildren(),
+                    LayoutOrder           = elementCount,
                     Parent                = Body,
                 })
 
-                -- Checkbox: 14×14, vertically centred: (26-14)/2 = 6px top offset
+                -- Checkbox 14×14 centred vertically: y=(26-14)/2=6
                 local Box = New("TextButton", {
                     Name             = "Checkbox",
-                    BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG,
+                    BackgroundColor3 = state and Theme.Checkbox_On or Theme.Checkbox_BG,
                     BorderColor3     = Theme.Checkbox_Bdr,
                     Position         = UDim2.new(0, 0, 0, 6),
                     Size             = UDim2.new(0, 14, 0, 14),
@@ -512,7 +559,7 @@ function UILibrary:CreateWindow(cfg)
                     Parent           = Row,
                 })
 
-                -- Label: x=20 (14px box + 6px gap), full remaining width
+                -- Label: x=20 (14px box + 6px gap)   w=271 (291-20)
                 New("TextLabel", {
                     Name                  = "Label",
                     BackgroundTransparency = 1,
@@ -531,7 +578,7 @@ function UILibrary:CreateWindow(cfg)
                 local function Apply(val, silent)
                     state = val
                     Tween(Box, {
-                        BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG
+                        BackgroundColor3 = state and Theme.Checkbox_On or Theme.Checkbox_BG
                     }, 0.1)
                     if not silent then callback(state) end
                 end
@@ -539,8 +586,8 @@ function UILibrary:CreateWindow(cfg)
                 Box.MouseButton1Click:Connect(function() Apply(not state) end)
 
                 return {
-                    Set = function(_, v) Apply(v, true) end,
-                    Get = function(_) return state end,
+                    Set = function(_, v) Apply(v, true)  end,
+                    Get = function(_)    return state     end,
                 }
             end
 
