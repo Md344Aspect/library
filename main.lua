@@ -476,7 +476,7 @@ function UILibrary:CreateWindow(cfg)
         Name             = "__tabs",
         BackgroundColor3 = T.TabBar_BG,
         BorderColor3     = T.TabBar_Bdr,
-        Position         = UDim2.new(0, 6, 0, 6),
+        Position         = UDim2.new(0, 6, 0, 7),
         Size             = UDim2.new(0, 608, 0, 45),
         Parent           = Frame2,
     })
