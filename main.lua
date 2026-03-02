@@ -546,7 +546,6 @@ function UILibrary:CreateWindow(cfg)
     -- Frame2 is intentionally excluded — it sits behind the entire
     -- content area, so registering it as a drag handle would eat
     -- all mouse-down events on sliders, dropdowns, and toggles.
-    MakeDraggable(Frame1, Frame1)
     MakeDraggable(TabBar, Frame1)
 
     -- ─────────────────────────────────────────────────────────
