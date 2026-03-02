@@ -1533,6 +1533,538 @@ function UILibrary:CreateWindow(cfg)
                 })
             end
 
+            -- ─────────────────────────────────────────────────
+            -- AddTextInput
+            -- ─────────────────────────────────────────────────
+            --[[
+                Row  291×44  BG transparent  LayoutOrder=N
+
+                ┌─ LabelRow ──────────────────────── 291×18  y=0 ──┐
+                │  Lbl  Size(1,0,0,18)  Left/Center  Font=Code 14  │
+                └──────────────────────────────────────────────────┘
+                ┌─ Field ─────────────────────────── 291×22  y=22 ─┐
+                │  BG RGB(22,22,22)  Border RGB(75,75,75) 1px      │
+                │  inner: 289×20  PaddingLeft/Right=6  → 277px text│
+                │  TextBox: placeholder RGB(75,75,75)               │
+                │           active text  RGB(255,255,255)           │
+                │           cursor accent colour                    │
+                │           FontSize=13  Left/Center                │
+                └──────────────────────────────────────────────────┘
+
+                Total height = 18 (label) + 4 (gap) + 22 (field) = 44px
+
+                Callback fires on FocusLost(enterPressed) and on each
+                changed character if cfg.live == true.
+
+                API:
+                  obj.Set(_, text)   → set value programmatically
+                  obj.Get(_)         → return current text
+                  obj.Clear(_)       → clear to ""
+                  obj.Focus(_)       → capture focus on TextBox
+            ]]
+            function Section:AddTextInput(label, placeholder, callback, cfg)
+                cfg         = cfg         or {}
+                placeholder = placeholder or ""
+                callback    = callback    or function() end
+                local live  = cfg.live    == true   -- fire on every keystroke
+                local maxLen = tonumber(cfg.maxLength) or 0  -- 0 = unlimited
+                elementCount += 1
+
+                -- Row: 291×44
+                local Row = New("Frame", {
+                    Name                   = "TextInput_" .. label,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Size                   = UDim2.new(1, 0, 0, 44),
+                    LayoutOrder            = elementCount,
+                    Parent                 = Body,
+                })
+
+                -- Label: full width × 18px  top-aligned
+                New("TextLabel", {
+                    Name                   = "Lbl",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Position               = UDim2.new(0, 0, 0, 0),
+                    Size                   = UDim2.new(1, 0, 0, 18),
+                    Font                   = T.Font,
+                    Text                   = label,
+                    TextColor3             = T.Text,
+                    TextSize               = T.FontSize,
+                    TextXAlignment         = Enum.TextXAlignment.Left,
+                    TextYAlignment         = Enum.TextYAlignment.Center,
+                    Parent                 = Row,
+                })
+
+                -- Field background: 291×22  pos y=22
+                local Field = New("Frame", {
+                    Name             = "Field",
+                    BackgroundColor3 = T.Slider_ValBox,   -- RGB(22,22,22)
+                    BorderColor3     = T.Separator,        -- RGB(75,75,75)
+                    Position         = UDim2.new(0, 0, 0, 22),
+                    Size             = UDim2.new(1, 0, 0, 22),
+                    Parent           = Row,
+                })
+
+                -- TextBox: fills Field inner (1px border → -2 each axis)
+                -- UIPadding adds 6px left/right breathing room
+                local TB = New("TextBox", {
+                    Name                   = "TB",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Position               = UDim2.new(0, 0, 0, 0),
+                    Size                   = UDim2.new(1, 0, 1, 0),
+                    Font                   = T.Font,
+                    PlaceholderText        = placeholder,
+                    PlaceholderColor3      = T.DimText,
+                    Text                   = "",
+                    TextColor3             = T.Text,
+                    TextSize               = 13,
+                    TextXAlignment         = Enum.TextXAlignment.Left,
+                    TextYAlignment         = Enum.TextYAlignment.Center,
+                    ClearTextOnFocus       = false,
+                    ClipsDescendants       = true,
+                    Parent                 = Field,
+                })
+                -- 6px padding left/right, 0 top/bottom (TextYAlignment handles it)
+                New("UIPadding", {
+                    PaddingLeft  = UDim.new(0, 6),
+                    PaddingRight = UDim.new(0, 6),
+                    Parent       = TB,
+                })
+
+                -- Max length enforcement
+                if maxLen > 0 then
+                    TB:GetPropertyChangedSignal("Text"):Connect(function()
+                        if #TB.Text > maxLen then
+                            TB.Text = string.sub(TB.Text, 1, maxLen)
+                        end
+                    end)
+                end
+
+                -- Border highlight: accent on focus, separator on blur
+                TB.Focused:Connect(function()
+                    Field.BorderColor3 = T.Accent
+                end)
+                TB.FocusLost:Connect(function(enter)
+                    Field.BorderColor3 = T.Separator
+                    callback(TB.Text, enter)
+                end)
+
+                -- Live mode: fire on every character change
+                if live then
+                    TB:GetPropertyChangedSignal("Text"):Connect(function()
+                        callback(TB.Text, false)
+                    end)
+                end
+
+                return {
+                    Set   = function(_, v)  TB.Text = tostring(v or "") end,
+                    Get   = function(_)     return TB.Text              end,
+                    Clear = function(_)     TB.Text = ""                end,
+                    Focus = function(_)     TB:CaptureFocus()           end,
+                }
+            end
+
+            -- ─────────────────────────────────────────────────
+            -- AddMultiDropdown
+            -- ─────────────────────────────────────────────────
+            --[[
+                Identical shell to AddDropdown but each item has a
+                checkbox and multiple items can be active simultaneously.
+
+                Row  291×CLOSED_H(26) or 291×OPEN_H(27+n×22)
+                     ClipsDescendants=true  fixed Size.Y
+
+                DHeader  291×26  BG RGB(30,30,30)  Border RGB(75,75,75) 1px
+                  SelLabel  x=6  Size(1,-26,1,0)  Left/Center
+                            shows: comma-joined selected, or placeholder,
+                            truncated with TextTruncate.AtEnd
+                  Arrow     x=(1,-20)  Size(0,20,1,0)  "▾"/"▴"  FontSize=12
+
+                List  pos y=27  Size(1,0,0,n×22)  BG RGB(22,22,22)  Border 1px
+                  Item[i]  pos=(0,(i-1)×22)  Size(1,0,0,22)
+                    Checkbox  12×12  x=6   y=(22-12)/2=5  centred ✓
+                              Border RGB(75,75,75)
+                              BG: accent if selected, RGB(30,30,30) if not
+                              Quad.Out 0.10s
+                    ItemLbl   pos x=24  Size(1,-30,1,0)  Left/Center
+                              TextColor3: accent if selected, white if not
+                    hover: Quad.Out 0.08s Item BG
+
+                  "Select All" / "Clear" footer strip  22px
+                    Two equal TextButtons split across the row
+
+                Callback: fires with table of selected option strings
+
+                API:
+                  obj.Set(_, tbl)   → set selection to array of strings
+                  obj.Get(_)        → return array of selected strings
+                  obj.Clear(_)      → deselect all
+                  obj.SelectAll(_)  → select all
+            ]]
+            function Section:AddMultiDropdown(label, options, defaults, callback)
+                options   = options   or {}
+                defaults  = defaults  or {}
+                callback  = callback  or function() end
+                local placeholder = label  -- header shows label name when nothing selected
+                elementCount += 1
+
+                -- Build initial selection set from defaults array
+                local selected = {}
+                for _, v in ipairs(defaults) do selected[v] = true end
+
+                local isOpen   = false
+                local CLOSED_H = 26
+                local ITEM_H   = 22
+                local FOOTER_H = 22
+                local LIST_H   = #options * ITEM_H + FOOTER_H
+                local OPEN_H   = CLOSED_H + 1 + LIST_H
+
+                -- Row
+                local Row = New("Frame", {
+                    Name                   = "MDD_" .. label,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Size                   = UDim2.new(1, 0, 0, CLOSED_H),
+                    LayoutOrder            = elementCount,
+                    ClipsDescendants       = true,
+                    Parent                 = Body,
+                })
+
+                -- DHeader
+                local DHeader = New("Frame", {
+                    Name             = "DHeader",
+                    BackgroundColor3 = T.Dropdown_BG,
+                    BorderColor3     = T.Separator,
+                    Size             = UDim2.new(1, 0, 0, 26),
+                    Parent           = Row,
+                })
+
+                local SelLabel = New("TextLabel", {
+                    Name                   = "SelLabel",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Position               = UDim2.new(0, 6, 0, 0),
+                    Size                   = UDim2.new(1, -26, 1, 0),
+                    Font                   = T.Font,
+                    Text                   = placeholder,
+                    TextColor3             = T.DimText,
+                    TextSize               = T.FontSize,
+                    TextXAlignment         = Enum.TextXAlignment.Left,
+                    TextYAlignment         = Enum.TextYAlignment.Center,
+                    TextTruncate           = Enum.TextTruncate.AtEnd,
+                    Parent                 = DHeader,
+                })
+
+                local Arrow = New("TextButton", {
+                    Name                   = "Arrow",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Position               = UDim2.new(1, -20, 0, 0),
+                    Size                   = UDim2.new(0, 20, 1, 0),
+                    Font                   = T.Font,
+                    Text                   = "▾",
+                    TextColor3             = T.SubText,
+                    TextSize               = 12,
+                    TextXAlignment         = Enum.TextXAlignment.Center,
+                    TextYAlignment         = Enum.TextYAlignment.Center,
+                    AutoButtonColor        = false,
+                    Parent                 = DHeader,
+                })
+
+                -- List
+                local List = New("Frame", {
+                    Name             = "List",
+                    BackgroundColor3 = T.Dropdown_List,
+                    BorderColor3     = T.Separator,
+                    Position         = UDim2.new(0, 0, 0, 27),
+                    Size             = UDim2.new(1, 0, 0, LIST_H),
+                    Visible          = false,
+                    Parent           = Row,
+                })
+
+                -- ── Helper: rebuild header text ────────────────
+                local function RefreshHeader()
+                    local parts = {}
+                    for _, opt in ipairs(options) do
+                        if selected[opt] then
+                            table.insert(parts, opt)
+                        end
+                    end
+                    if #parts == 0 then
+                        SelLabel.Text      = placeholder
+                        SelLabel.TextColor3 = T.DimText
+                    else
+                        SelLabel.Text      = table.concat(parts, ", ")
+                        SelLabel.TextColor3 = T.Text
+                    end
+                end
+
+                -- ── Helper: get selection as ordered array ─────
+                local function GetSelection()
+                    local out = {}
+                    for _, opt in ipairs(options) do
+                        if selected[opt] then table.insert(out, opt) end
+                    end
+                    return out
+                end
+
+                -- ── Build item rows ────────────────────────────
+                local itemBoxes = {}   -- opt → checkbox Frame ref
+
+                for i, opt in ipairs(options) do
+                    local Item = New("Frame", {
+                        Name             = "Item_" .. i,
+                        BackgroundColor3 = T.Dropdown_List,
+                        BorderSizePixel  = 0,
+                        Position         = UDim2.new(0, 0, 0, (i - 1) * ITEM_H),
+                        Size             = UDim2.new(1, 0, 0, ITEM_H),
+                        Parent           = List,
+                    })
+
+                    -- Checkbox: 12×12  x=6  y=(22-12)/2=5  centred ✓
+                    local CB = New("Frame", {
+                        Name             = "CB",
+                        BackgroundColor3 = selected[opt] and T.Checkbox_On or T.Checkbox_BG,
+                        BorderColor3     = T.Separator,
+                        Position         = UDim2.new(0, 6, 0, 5),
+                        Size             = UDim2.new(0, 12, 0, 12),
+                        Parent           = Item,
+                    })
+                    itemBoxes[opt] = CB
+
+                    -- Item label: x=24  right-pad 6 → Size(1,-30,1,0)
+                    local ItemLbl = New("TextLabel", {
+                        Name                   = "Lbl",
+                        BackgroundTransparency = 1,
+                        BorderSizePixel        = 0,
+                        Position               = UDim2.new(0, 24, 0, 0),
+                        Size                   = UDim2.new(1, -30, 1, 0),
+                        Font                   = T.Font,
+                        Text                   = opt,
+                        TextColor3             = selected[opt] and T.Dropdown_Sel or T.Text,
+                        TextSize               = T.FontSize,
+                        TextXAlignment         = Enum.TextXAlignment.Left,
+                        TextYAlignment         = Enum.TextYAlignment.Center,
+                        TextTruncate           = Enum.TextTruncate.AtEnd,
+                        Parent                 = Item,
+                    })
+
+                    -- Clickable button over entire item row
+                    local ItemBtn = New("TextButton", {
+                        BackgroundTransparency = 1,
+                        BorderSizePixel        = 0,
+                        Size                   = UDim2.new(1, 0, 1, 0),
+                        Text                   = "",
+                        AutoButtonColor        = false,
+                        ZIndex                 = 2,
+                        Parent                 = Item,
+                    })
+
+                    -- Hover
+                    Item.MouseEnter:Connect(function()
+                        TweenQuad(Item, 0.08, { BackgroundColor3 = T.Dropdown_Hover })
+                    end)
+                    Item.MouseLeave:Connect(function()
+                        TweenQuad(Item, 0.08, { BackgroundColor3 = T.Dropdown_List })
+                    end)
+
+                    -- Toggle selection
+                    ItemBtn.MouseButton1Click:Connect(function()
+                        selected[opt] = not selected[opt]
+                        -- Animate checkbox
+                        TweenQuad(CB, 0.10, {
+                            BackgroundColor3 = selected[opt] and T.Checkbox_On or T.Checkbox_BG
+                        })
+                        ItemLbl.TextColor3 = selected[opt] and T.Dropdown_Sel or T.Text
+                        RefreshHeader()
+                        callback(GetSelection())
+                    end)
+                end
+
+                -- ── Footer: "All" | "None" buttons ────────────
+                -- Sits at y = #options × 22  height=22
+                -- Divided into two equal halves with a 1px divider in the centre
+                -- Each half: (291/2) wide = 145.5 → left=145px  right=146px
+                local Footer = New("Frame", {
+                    Name             = "Footer",
+                    BackgroundColor3 = Color3.fromRGB(18, 18, 18),
+                    BorderSizePixel  = 0,
+                    Position         = UDim2.new(0, 0, 0, #options * ITEM_H),
+                    Size             = UDim2.new(1, 0, 0, FOOTER_H),
+                    Parent           = List,
+                })
+
+                -- Top separator line of footer
+                New("Frame", {
+                    BackgroundColor3 = T.Separator,
+                    BorderSizePixel  = 0,
+                    Position         = UDim2.new(0, 0, 0, 0),
+                    Size             = UDim2.new(1, 0, 0, 1),
+                    Parent           = Footer,
+                })
+
+                -- "Select All" left half: x=0  w=50%  h=21  (below 1px sep)
+                local BtnAll = New("TextButton", {
+                    Name                   = "BtnAll",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Position               = UDim2.new(0, 0, 0, 1),
+                    Size                   = UDim2.new(0.5, -1, 0, FOOTER_H - 1),
+                    Font                   = T.Font,
+                    Text                   = "Select All",
+                    TextColor3             = T.SubText,
+                    TextSize               = 11,
+                    TextXAlignment         = Enum.TextXAlignment.Center,
+                    TextYAlignment         = Enum.TextYAlignment.Center,
+                    AutoButtonColor        = false,
+                    Parent                 = Footer,
+                })
+
+                -- Centre divider of footer
+                New("Frame", {
+                    BackgroundColor3 = T.Separator,
+                    BorderSizePixel  = 0,
+                    Position         = UDim2.new(0.5, -1, 0, 1),
+                    Size             = UDim2.new(0, 1, 0, FOOTER_H - 1),
+                    Parent           = Footer,
+                })
+
+                -- "Clear" right half: x=50%+1  w=50%-1  h=21
+                local BtnClear = New("TextButton", {
+                    Name                   = "BtnClear",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel        = 0,
+                    Position               = UDim2.new(0.5, 1, 0, 1),
+                    Size                   = UDim2.new(0.5, -1, 0, FOOTER_H - 1),
+                    Font                   = T.Font,
+                    Text                   = "Clear",
+                    TextColor3             = T.SubText,
+                    TextSize               = 11,
+                    TextXAlignment         = Enum.TextXAlignment.Center,
+                    TextYAlignment         = Enum.TextYAlignment.Center,
+                    AutoButtonColor        = false,
+                    Parent                 = Footer,
+                })
+
+                -- Footer button hover colour tweens
+                BtnAll.MouseEnter:Connect(function()
+                    TweenQuad(BtnAll, 0.08, { TextColor3 = T.Text })
+                end)
+                BtnAll.MouseLeave:Connect(function()
+                    TweenQuad(BtnAll, 0.08, { TextColor3 = T.SubText })
+                end)
+                BtnClear.MouseEnter:Connect(function()
+                    TweenQuad(BtnClear, 0.08, { TextColor3 = T.Text })
+                end)
+                BtnClear.MouseLeave:Connect(function()
+                    TweenQuad(BtnClear, 0.08, { TextColor3 = T.SubText })
+                end)
+
+                -- Select All
+                BtnAll.MouseButton1Click:Connect(function()
+                    for idx, opt in ipairs(options) do
+                        selected[opt] = true
+                        TweenQuad(itemBoxes[opt], 0.10, { BackgroundColor3 = T.Checkbox_On })
+                        local item = List:FindFirstChild("Item_" .. idx)
+                        if item then
+                            local lbl = item:FindFirstChild("Lbl")
+                            if lbl then lbl.TextColor3 = T.Dropdown_Sel end
+                        end
+                    end
+                    RefreshHeader()
+                    callback(GetSelection())
+                end)
+
+                -- Clear All
+                BtnClear.MouseButton1Click:Connect(function()
+                    for idx, opt in ipairs(options) do
+                        selected[opt] = false
+                        TweenQuad(itemBoxes[opt], 0.10, { BackgroundColor3 = T.Checkbox_BG })
+                        local item = List:FindFirstChild("Item_" .. idx)
+                        if item then
+                            local lbl = item:FindFirstChild("Lbl")
+                            if lbl then lbl.TextColor3 = T.Text end
+                        end
+                    end
+                    RefreshHeader()
+                    callback(GetSelection())
+                end)
+
+                -- ── Open / Close ───────────────────────────────
+                local function Toggle()
+                    isOpen     = not isOpen
+                    Arrow.Text = isOpen and "▴" or "▾"
+                    if isOpen then
+                        List.Visible = true
+                        Row.Size     = UDim2.new(1, 0, 0, OPEN_H)
+                    else
+                        List.Visible = false
+                        Row.Size     = UDim2.new(1, 0, 0, CLOSED_H)
+                    end
+                end
+
+                DHeader.InputBegan:Connect(function(inp)
+                    if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Toggle()
+                    end
+                end)
+                Arrow.MouseButton1Click:Connect(Toggle)
+
+                -- Initial header state
+                RefreshHeader()
+
+                -- ── Public API ─────────────────────────────────
+                return {
+                    -- Set selection from array: e.g. obj:Set({"Head","Neck"})
+                    Set = function(_, tbl)
+                        selected = {}
+                        for _, v in ipairs(tbl) do selected[v] = true end
+                        for idx, opt in ipairs(options) do
+                            local isOn = selected[opt] == true
+                            TweenQuad(itemBoxes[opt], 0.10, {
+                                BackgroundColor3 = isOn and T.Checkbox_On or T.Checkbox_BG
+                            })
+                            local item = List:FindFirstChild("Item_" .. idx)
+                            if item then
+                                local lbl = item:FindFirstChild("Lbl")
+                                if lbl then lbl.TextColor3 = isOn and T.Dropdown_Sel or T.Text end
+                            end
+                        end
+                        RefreshHeader()
+                        callback(GetSelection())
+                    end,
+                    Get       = function(_) return GetSelection()   end,
+                    Clear     = function(_)
+                        for idx, opt in ipairs(options) do
+                            selected[opt] = false
+                            TweenQuad(itemBoxes[opt], 0.10, { BackgroundColor3 = T.Checkbox_BG })
+                            local item = List:FindFirstChild("Item_" .. idx)
+                            if item then
+                                local lbl = item:FindFirstChild("Lbl")
+                                if lbl then lbl.TextColor3 = T.Text end
+                            end
+                        end
+                        RefreshHeader()
+                        callback(GetSelection())
+                    end,
+                    SelectAll = function(_)
+                        for idx, opt in ipairs(options) do
+                            selected[opt] = true
+                            TweenQuad(itemBoxes[opt], 0.10, { BackgroundColor3 = T.Checkbox_On })
+                            local item = List:FindFirstChild("Item_" .. idx)
+                            if item then
+                                local lbl = item:FindFirstChild("Lbl")
+                                if lbl then lbl.TextColor3 = T.Dropdown_Sel end
+                            end
+                        end
+                        RefreshHeader()
+                        callback(GetSelection())
+                    end,
+                }
+            end
+
             return Section
         end
 
