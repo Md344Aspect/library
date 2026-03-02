@@ -542,9 +542,11 @@ function UILibrary:CreateWindow(cfg)
         Parent           = Frame2,
     })
 
-    -- ── Dragging: all three handles move Frame1 ────────────────
+    -- ── Dragging: Frame1 outer shell + TabBar only ─────────────
+    -- Frame2 is intentionally excluded — it sits behind the entire
+    -- content area, so registering it as a drag handle would eat
+    -- all mouse-down events on sliders, dropdowns, and toggles.
     MakeDraggable(Frame1, Frame1)
-    MakeDraggable(Frame2, Frame1)
     MakeDraggable(TabBar, Frame1)
 
     -- ─────────────────────────────────────────────────────────
