@@ -1,10 +1,10 @@
 --[[
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  UILibrary  —  CSGO-style  |  Font.Code  |  Colorways  |  Watermark         ║
-║  Version 3.1  —  All critical bugs fixed                                     ║
+║  Version 3.2  —  All critical bugs fixed  |  Expanded colorways             ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
 ║                                                                              ║
-║  FIXES IN v3.1                                                               ║
+║  FIXES IN v3.1 / v3.2                                                        ║
 ║    1.  AddLabel      — LayoutOrder now calls NextOrder() correctly           ║
 ║    2.  AddSeparator  — LayoutOrder now calls NextOrder() correctly           ║
 ║    3.  Slider drag   — AbsolutePosition/Size read per-frame, not cached      ║
@@ -15,16 +15,38 @@
 ║    8.  Tab Select    — pending tweens cancelled before starting new ones     ║
 ║    9.  ValBox TextBox— pcall + validity guard on FocusLost                   ║
 ║   10.  CoreGui parent— pcall with PlayerGui fallback on all ScreenGui inits  ║
+║   11.  Colorways     — 22 themes, each with tuned shell/surface tints        ║
 ║                                                                              ║
-║  COLORWAYS  (cfg.theme)                                                      ║
-║    "red"    → RGB(125,  0,   4)   default                                    ║
-║    "blue"   → RGB(  0,100, 200)                                              ║
-║    "green"  → RGB( 30,140,  60)                                              ║
-║    "purple" → RGB(100,  0, 160)                                              ║
-║    "orange" → RGB(200, 90,   0)                                              ║
-║    "cyan"   → RGB(  0,160, 180)                                              ║
-║    "pink"   → RGB(200,  0, 120)                                              ║
-║    "white"  → RGB(200,200, 200)                                              ║
+║  COLORWAYS  (cfg.theme)                — accent / shell bg tint              ║
+║  ── Reds ──────────────────────────────────────────────────────────────────  ║
+║    "crimson"    → RGB(220,  30,  60)   vivid red            default          ║
+║    "blood"      → RGB(160,   0,  20)   deep dark red                         ║
+║    "rose"       → RGB(230,  80, 110)   soft rose pink                        ║
+║  ── Blues ─────────────────────────────────────────────────────────────────  ║
+║    "cobalt"     → RGB( 30, 120, 255)   electric blue                         ║
+║    "navy"       → RGB( 20,  60, 160)   deep navy                             ║
+║    "sky"        → RGB( 55, 170, 255)   light sky blue                        ║
+║    "arctic"     → RGB( 80, 200, 230)   icy blue-cyan                         ║
+║  ── Greens ────────────────────────────────────────────────────────────────  ║
+║    "emerald"    → RGB( 20, 200, 100)   vivid emerald                         ║
+║    "forest"     → RGB( 30, 120,  50)   muted forest green                    ║
+║    "lime"       → RGB(140, 210,  40)   acid lime                             ║
+║    "mint"       → RGB( 60, 210, 160)   soft mint                             ║
+║  ── Purples ───────────────────────────────────────────────────────────────  ║
+║    "violet"     → RGB(130,  40, 255)   vivid violet                          ║
+║    "grape"      → RGB( 90,  20, 140)   deep grape                            ║
+║    "lavender"   → RGB(160, 120, 240)   soft lavender                         ║
+║  ── Oranges & Yellows ─────────────────────────────────────────────────────  ║
+║    "amber"      → RGB(255, 160,   0)   golden amber                          ║
+║    "fire"       → RGB(240,  70,  20)   fire orange-red                       ║
+║    "gold"       → RGB(220, 180,  30)   warm gold                             ║
+║  ── Pinks ─────────────────────────────────────────────────────────────────  ║
+║    "magenta"    → RGB(220,   0, 180)   hot magenta                           ║
+║    "sakura"     → RGB(240, 140, 180)   soft cherry blossom                   ║
+║  ── Neutrals ──────────────────────────────────────────────────────────────  ║
+║    "silver"     → RGB(180, 190, 200)   cool silver                           ║
+║    "slate"      → RGB(100, 120, 150)   blue-grey slate                       ║
+║    "ash"        → RGB(150, 150, 155)   neutral warm ash                      ║
 ║                                                                              ║
 ║  LAYOUT  (px)                                                                ║
 ║    Window  630×390  centered                                                 ║
@@ -94,59 +116,148 @@ end
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Colorways
+--
+-- Each entry is a table with:
+--   accent  — the primary highlight color (tabs, toggles, sliders, etc.)
+--   shell   — very subtle tint baked into the dark background frames
+--   border  — border/separator color, slightly tinted to match the accent family
+--   surface — slightly lighter than shell, used for dropdowns / val boxes
+--   hover   — item hover color
+--   track   — slider track (slightly visible against surface)
+--
+-- All backgrounds stay dark (UI is always dark-mode). The tints are subtle
+-- (1–4 RGB units off neutral grey) so the UI stays readable on any game.
 -- ─────────────────────────────────────────────────────────────────────────────
 local Colorways = {
-    red    = Color3.fromRGB(125,   0,   4),
-    blue   = Color3.fromRGB(  0, 100, 200),
-    green  = Color3.fromRGB( 30, 140,  60),
-    purple = Color3.fromRGB(100,   0, 160),
-    orange = Color3.fromRGB(200,  90,   0),
-    cyan   = Color3.fromRGB(  0, 160, 180),
-    pink   = Color3.fromRGB(200,   0, 120),
-    white  = Color3.fromRGB(200, 200, 200),
+    -- ── Reds ──────────────────────────────────────────────────────────────────
+    crimson  = { accent=Color3.fromRGB(220, 30,  60),  shell=Color3.fromRGB(30,17,18),  border=Color3.fromRGB(90,40,45),  surface=Color3.fromRGB(26,14,15),  hover=Color3.fromRGB(42,22,24),  track=Color3.fromRGB(50,22,24) },
+    blood    = { accent=Color3.fromRGB(160,  0,  20),  shell=Color3.fromRGB(28,15,15),  border=Color3.fromRGB(80,30,35),  surface=Color3.fromRGB(22,12,12),  hover=Color3.fromRGB(38,18,18),  track=Color3.fromRGB(46,18,18) },
+    rose     = { accent=Color3.fromRGB(230, 80, 110),  shell=Color3.fromRGB(30,18,20),  border=Color3.fromRGB(90,48,58),  surface=Color3.fromRGB(25,15,17),  hover=Color3.fromRGB(42,24,28),  track=Color3.fromRGB(50,26,30) },
+    -- ── Blues ─────────────────────────────────────────────────────────────────
+    cobalt   = { accent=Color3.fromRGB( 30,120,255),   shell=Color3.fromRGB(16,18,30),  border=Color3.fromRGB(35,55,90),  surface=Color3.fromRGB(13,15,26),  hover=Color3.fromRGB(22,26,44),  track=Color3.fromRGB(26,30,52) },
+    navy     = { accent=Color3.fromRGB( 20, 60,160),   shell=Color3.fromRGB(15,17,28),  border=Color3.fromRGB(28,42,80),  surface=Color3.fromRGB(12,14,24),  hover=Color3.fromRGB(18,22,40),  track=Color3.fromRGB(22,26,48) },
+    sky      = { accent=Color3.fromRGB( 55,170,255),   shell=Color3.fromRGB(16,19,30),  border=Color3.fromRGB(36,60,90),  surface=Color3.fromRGB(13,16,26),  hover=Color3.fromRGB(22,28,44),  track=Color3.fromRGB(26,32,52) },
+    arctic   = { accent=Color3.fromRGB( 80,200,230),   shell=Color3.fromRGB(16,20,28),  border=Color3.fromRGB(36,65,80),  surface=Color3.fromRGB(13,17,24),  hover=Color3.fromRGB(22,29,40),  track=Color3.fromRGB(26,34,48) },
+    -- ── Greens ────────────────────────────────────────────────────────────────
+    emerald  = { accent=Color3.fromRGB( 20,200,100),   shell=Color3.fromRGB(15,28,20),  border=Color3.fromRGB(30,75,48),  surface=Color3.fromRGB(12,23,16),  hover=Color3.fromRGB(18,38,26),  track=Color3.fromRGB(20,44,28) },
+    forest   = { accent=Color3.fromRGB( 30,120, 50),   shell=Color3.fromRGB(15,26,17),  border=Color3.fromRGB(28,65,36),  surface=Color3.fromRGB(12,22,14),  hover=Color3.fromRGB(18,34,22),  track=Color3.fromRGB(20,40,24) },
+    lime     = { accent=Color3.fromRGB(140,210, 40),   shell=Color3.fromRGB(20,28,14),  border=Color3.fromRGB(55,80,28),  surface=Color3.fromRGB(17,24,11),  hover=Color3.fromRGB(28,38,16),  track=Color3.fromRGB(32,44,18) },
+    mint     = { accent=Color3.fromRGB( 60,210,160),   shell=Color3.fromRGB(15,28,24),  border=Color3.fromRGB(30,75,60),  surface=Color3.fromRGB(12,23,20),  hover=Color3.fromRGB(18,38,32),  track=Color3.fromRGB(20,44,36) },
+    -- ── Purples ───────────────────────────────────────────────────────────────
+    violet   = { accent=Color3.fromRGB(130, 40,255),   shell=Color3.fromRGB(20,15,30),  border=Color3.fromRGB(58,35,90),  surface=Color3.fromRGB(17,12,26),  hover=Color3.fromRGB(28,18,44),  track=Color3.fromRGB(32,20,52) },
+    grape    = { accent=Color3.fromRGB( 90, 20,140),   shell=Color3.fromRGB(19,14,28),  border=Color3.fromRGB(50,28,78),  surface=Color3.fromRGB(16,11,24),  hover=Color3.fromRGB(26,16,38),  track=Color3.fromRGB(30,18,46) },
+    lavender = { accent=Color3.fromRGB(160,120,240),   shell=Color3.fromRGB(22,18,30),  border=Color3.fromRGB(65,52,90),  surface=Color3.fromRGB(18,15,26),  hover=Color3.fromRGB(30,24,44),  track=Color3.fromRGB(36,28,52) },
+    -- ── Oranges & Yellows ─────────────────────────────────────────────────────
+    amber    = { accent=Color3.fromRGB(255,160,  0),   shell=Color3.fromRGB(30,24,14),  border=Color3.fromRGB(90,68,25),  surface=Color3.fromRGB(26,20,11),  hover=Color3.fromRGB(42,32,16),  track=Color3.fromRGB(50,36,18) },
+    fire     = { accent=Color3.fromRGB(240, 70, 20),   shell=Color3.fromRGB(30,18,14),  border=Color3.fromRGB(88,42,25),  surface=Color3.fromRGB(26,15,11),  hover=Color3.fromRGB(42,22,16),  track=Color3.fromRGB(50,24,18) },
+    gold     = { accent=Color3.fromRGB(220,180, 30),   shell=Color3.fromRGB(28,26,13),  border=Color3.fromRGB(82,72,22),  surface=Color3.fromRGB(24,22,10),  hover=Color3.fromRGB(38,34,14),  track=Color3.fromRGB(44,38,16) },
+    -- ── Pinks ─────────────────────────────────────────────────────────────────
+    magenta  = { accent=Color3.fromRGB(220,  0,180),   shell=Color3.fromRGB(30,14,28),  border=Color3.fromRGB(88,25,80),  surface=Color3.fromRGB(26,11,24),  hover=Color3.fromRGB(42,16,38),  track=Color3.fromRGB(50,18,44) },
+    sakura   = { accent=Color3.fromRGB(240,140,180),   shell=Color3.fromRGB(30,18,24),  border=Color3.fromRGB(90,52,68),  surface=Color3.fromRGB(26,15,20),  hover=Color3.fromRGB(42,22,32),  track=Color3.fromRGB(50,26,36) },
+    -- ── Neutrals ──────────────────────────────────────────────────────────────
+    silver   = { accent=Color3.fromRGB(180,190,200),   shell=Color3.fromRGB(20,21,23),  border=Color3.fromRGB(65,68,72),  surface=Color3.fromRGB(17,18,19),  hover=Color3.fromRGB(32,34,36),  track=Color3.fromRGB(38,40,42) },
+    slate    = { accent=Color3.fromRGB(100,120,150),   shell=Color3.fromRGB(17,19,23),  border=Color3.fromRGB(44,52,66),  surface=Color3.fromRGB(14,16,19),  hover=Color3.fromRGB(24,27,33),  track=Color3.fromRGB(28,32,40) },
+    ash      = { accent=Color3.fromRGB(150,150,155),   shell=Color3.fromRGB(20,20,21),  border=Color3.fromRGB(62,62,65),  surface=Color3.fromRGB(17,17,18),  hover=Color3.fromRGB(30,30,32),  track=Color3.fromRGB(36,36,38) },
 }
+
+-- Legacy aliases so old code using "red", "blue" etc. still works
+Colorways.red    = Colorways.crimson
+Colorways.blue   = Colorways.cobalt
+Colorways.green  = Colorways.emerald
+Colorways.purple = Colorways.violet
+Colorways.orange = Colorways.amber
+Colorways.cyan   = Colorways.arctic
+Colorways.pink   = Colorways.magenta
+Colorways.white  = Colorways.silver
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- Theme
+--
+-- BuildTheme now accepts the full colorway table (with shell/border/surface
+-- fields) so every surface in the GUI is tinted to match the theme family.
 -- ─────────────────────────────────────────────────────────────────────────────
-local function BuildTheme(accent)
+local function BuildTheme(cw)
+    -- cw may be a raw colorway table or a plain Color3 (backward-compat)
+    local accent, shell, border, surface, hover, track
+    if typeof(cw) == "Color3" then
+        -- Plain Color3 passed directly (e.g. custom accent): fall back to neutrals
+        accent  = cw
+        shell   = Color3.fromRGB(29, 29, 29)
+        border  = Color3.fromRGB(72, 72, 72)
+        surface = Color3.fromRGB(22, 22, 22)
+        hover   = Color3.fromRGB(40, 40, 40)
+        track   = Color3.fromRGB(44, 44, 44)
+    else
+        accent  = cw.accent
+        shell   = cw.shell
+        border  = cw.border
+        surface = cw.surface
+        hover   = cw.hover
+        track   = cw.track
+    end
+
+    -- Derive lighter variants for text-facing surfaces
+    -- "panel" is shell lifted ~10 RGB units (used for tab bar, content area bg)
+    local function Lift(c, n)
+        return Color3.fromRGB(
+            math.min(255, math.floor(c.R * 255 + 0.5) + n),
+            math.min(255, math.floor(c.G * 255 + 0.5) + n),
+            math.min(255, math.floor(c.B * 255 + 0.5) + n)
+        )
+    end
+
+    local panel  = Lift(shell, 10)   -- tab bar, content area background
+    local panel2 = Lift(shell, 14)   -- tab inactive background
+    local panel3 = Lift(shell, 20)   -- tab hover
+
     return {
-        Frame1_BG      = Color3.fromRGB( 29,  29,  29),
-        Frame2_BG      = Color3.fromRGB( 16,  16,  16),
-        Frame2_Bdr     = Color3.fromRGB( 75,  75,  75),
-        TabBar_BG      = Color3.fromRGB( 16,  16,  16),
-        TabBar_Bdr     = Color3.fromRGB( 75,  75,  75),
-        TabInactive_BG = Color3.fromRGB( 30,  30,  30),
-        TabHover_BG    = Color3.fromRGB( 42,  42,  42),
+        -- Frames
+        Frame1_BG      = Lift(shell, 12),
+        Frame2_BG      = shell,
+        Frame2_Bdr     = border,
+        -- Tab bar
+        TabBar_BG      = shell,
+        TabBar_Bdr     = border,
+        TabInactive_BG = panel2,
+        TabHover_BG    = panel3,
         TabActive_BG   = accent,
-        Content_BG     = Color3.fromRGB( 16,  16,  16),
-        Content_Bdr    = Color3.fromRGB( 75,  75,  75),
-        Text           = Color3.fromRGB(255, 255, 255),
-        SubText        = Color3.fromRGB(160, 160, 160),
-        DimText        = Color3.fromRGB( 85,  85,  85),
-        SectionTitle   = Color3.fromRGB(180, 180, 180),
-        Separator      = Color3.fromRGB( 75,  75,  75),
+        -- Content
+        Content_BG     = shell,
+        Content_Bdr    = border,
+        -- Text  — kept high-contrast regardless of theme
+        Text           = Color3.fromRGB(242, 242, 242),
+        SubText        = Color3.fromRGB(155, 158, 165),
+        DimText        = Color3.fromRGB( 80,  82,  88),
+        SectionTitle   = Color3.fromRGB(185, 188, 195),
+        -- Misc
+        Separator      = border,
         Accent         = accent,
-        Checkbox_BG    = Color3.fromRGB( 22,  22,  22),
-        Checkbox_Bdr   = Color3.fromRGB( 75,  75,  75),
+        -- Checkbox / Toggle
+        Checkbox_BG    = surface,
+        Checkbox_Bdr   = border,
         Checkbox_On    = accent,
-        Dropdown_BG    = Color3.fromRGB( 30,  30,  30),
-        Dropdown_List  = Color3.fromRGB( 22,  22,  22),
-        Dropdown_Hover = Color3.fromRGB( 38,  38,  38),
+        -- Dropdown
+        Dropdown_BG    = panel2,
+        Dropdown_List  = surface,
+        Dropdown_Hover = hover,
         Dropdown_Sel   = accent,
-        Slider_Track   = Color3.fromRGB( 40,  40,  40),
+        -- Slider
+        Slider_Track   = track,
         Slider_Fill    = accent,
         Slider_Thumb   = accent,
-        Slider_ValBox  = Color3.fromRGB( 22,  22,  22),
-        Tooltip_BG     = Color3.fromRGB( 22,  22,  22),
-        Tooltip_Bdr    = Color3.fromRGB( 75,  75,  75),
-        Tooltip_Text   = Color3.fromRGB(200, 200, 200),
+        Slider_ValBox  = surface,
+        -- Tooltip
+        Tooltip_BG     = surface,
+        Tooltip_Bdr    = border,
+        Tooltip_Text   = Color3.fromRGB(210, 212, 218),
+        -- Notification type colours — always vivid and readable
         Notif = {
-            info    = Color3.fromRGB( 75,  75,  75),
-            success = Color3.fromRGB( 30, 140,  60),
-            warning = Color3.fromRGB(200, 150,   0),
-            error   = Color3.fromRGB(125,   0,   4),
+            info    = Color3.fromRGB( 70,  75,  88),
+            success = Color3.fromRGB( 25, 175,  85),
+            warning = Color3.fromRGB(210, 145,   0),
+            error   = Color3.fromRGB(200,  30,  50),
         },
+        -- Typography
         Font     = Enum.Font.Code,
         FontSize = 14,
         HdrSize  = 11,
@@ -525,12 +636,24 @@ end
 -- ─────────────────────────────────────────────────────────────────────────────
 function UILibrary:CreateWindow(cfg)
     cfg = cfg or {}
-    local toggleKey   = cfg.key    or Enum.KeyCode.RightShift
-    local accentColor = Colorways[cfg.theme] or Colorways.red
-    local scriptName  = tostring(cfg.name  or "Script")
-    local showFPS     = cfg.fps   ~= false
-    local showClock   = cfg.clock ~= false
-    local T           = BuildTheme(accentColor)
+    local toggleKey  = cfg.key   or Enum.KeyCode.RightShift
+    local scriptName = tostring(cfg.name  or "Script")
+    local showFPS    = cfg.fps   ~= false
+    local showClock  = cfg.clock ~= false
+
+    -- Resolve colorway: accept a string key, a full colorway table, or a raw Color3
+    local cw
+    if type(cfg.theme) == "string" then
+        cw = Colorways[cfg.theme] or Colorways.crimson
+    elseif type(cfg.theme) == "table" then
+        cw = cfg.theme   -- user-supplied custom colorway table
+    elseif typeof(cfg.theme) == "Color3" then
+        cw = cfg.theme   -- raw Color3 (BuildTheme handles this)
+    else
+        cw = Colorways.crimson
+    end
+
+    local T = BuildTheme(cw)
 
     -- Clean up any previous instance
     for _, n in ipairs({"_index_", "_wmk_"}) do
