@@ -595,7 +595,7 @@ function UILibrary:CreateWindow(cfg)
         Name             = "__tabs",
         BackgroundColor3 = T.TabBar_BG,
         BorderColor3     = T.TabBar_Bdr,
-        Position         = UDim2.new(0, 6, 0, 8),
+        Position         = UDim2.new(0, 6, 0, 7),
         Size             = UDim2.new(0, 608, 0, 45),
         Parent           = Frame2,
     })
@@ -620,7 +620,6 @@ function UILibrary:CreateWindow(cfg)
     -- ── Dragging
     -- Only Frame1 (outer shell) and TabBar are drag handles.
     -- Frame2 is excluded: registering it eats mouse-down events on elements.
-    MakeDraggable(Frame1, Frame1)
     MakeDraggable(TabBar, Frame1)
 
     -- ─────────────────────────────────────────────────────────────────────────
