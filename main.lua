@@ -1,8 +1,20 @@
 --[[
 ╔══════════════════════════════════════════════════════════════════════════════╗
 ║  UILibrary  —  CSGO-style  |  Font.Code  |  Colorways  |  Watermark         ║
-║  Version 3.0  —  Pixel-perfect  |  Bug-fixed  |  Tooltip support            ║
+║  Version 3.1  —  All critical bugs fixed                                     ║
 ╠══════════════════════════════════════════════════════════════════════════════╣
+║                                                                              ║
+║  FIXES IN v3.1                                                               ║
+║    1.  AddLabel      — LayoutOrder now calls NextOrder() correctly           ║
+║    2.  AddSeparator  — LayoutOrder now calls NextOrder() correctly           ║
+║    3.  Slider drag   — AbsolutePosition/Size read per-frame, not cached      ║
+║    4.  MakeDraggable — global InputChanged stored + disconnected on reuse    ║
+║    5.  EnsureNotifGui — NotifContainer existence also re-checked             ║
+║    6.  Dropdown Set  — silent flag added, callback not fired on prog. set    ║
+║    7.  Dropdowns     — opening one auto-closes all others in same section    ║
+║    8.  Tab Select    — pending tweens cancelled before starting new ones     ║
+║    9.  ValBox TextBox— pcall + validity guard on FocusLost                   ║
+║   10.  CoreGui parent— pcall with PlayerGui fallback on all ScreenGui inits  ║
 ║                                                                              ║
 ║  COLORWAYS  (cfg.theme)                                                      ║
 ║    "red"    → RGB(125,  0,   4)   default                                    ║
@@ -18,18 +30,18 @@
 ║    Window  630×390  centered                                                 ║
 ║    Inner   620×380  offset (5,5)                                             ║
 ║    TabBar  608×45   offset (6,8)                                             ║
-║    Content 608×314  offset (6,59)  [59 = 8+45+6]                            ║
+║    Content 608×314  offset (6,59)                                            ║
 ║    Padding 8px all sides  →  usable 592×298                                 ║
 ║    Columns  (592-8)/2 = 292px each   gap=8   RightCol x=300                 ║
 ║                                                                              ║
 ║  ELEMENTS  (292px wide)                                                      ║
 ║    Toggle          292×26                                                    ║
-║    Slider          292×40  (18 label row + 4 gap + 12 track row + 6 thumb)   ║
+║    Slider          292×40                                                    ║
 ║    Dropdown        292×26 closed  /  27+n×22 open                           ║
 ║    MultiDropdown   292×26 closed  /  27+n×22+22footer open                  ║
-║    TextInput       292×44  (18 label + 4 gap + 22 field)                    ║
+║    TextInput       292×44                                                    ║
 ║    Label           292×18                                                    ║
-║    Separator       292×9   (1px line centred in 9px wrapper)                 ║
+║    Separator       292×9                                                     ║
 ║                                                                              ║
 ║  TOOLTIP                                                                     ║
 ║    Any element accepts an optional last arg: tooltip = "string"              ║
@@ -67,6 +79,20 @@ local Players          = game:GetService("Players")
 local CoreGui          = game:GetService("CoreGui")
 
 -- ─────────────────────────────────────────────────────────────────────────────
+-- FIX #10 — Safe CoreGui parenting with PlayerGui fallback
+-- ─────────────────────────────────────────────────────────────────────────────
+local function SafeParent(gui)
+    local ok = pcall(function() gui.Parent = CoreGui end)
+    if not ok then
+        -- Fallback: parent to PlayerGui if CoreGui is restricted
+        local lp = Players.LocalPlayer
+        if lp then
+            gui.Parent = lp:WaitForChild("PlayerGui", 5)
+        end
+    end
+end
+
+-- ─────────────────────────────────────────────────────────────────────────────
 -- Colorways
 -- ─────────────────────────────────────────────────────────────────────────────
 local Colorways = {
@@ -85,53 +111,42 @@ local Colorways = {
 -- ─────────────────────────────────────────────────────────────────────────────
 local function BuildTheme(accent)
     return {
-        -- Frames
         Frame1_BG      = Color3.fromRGB( 29,  29,  29),
         Frame2_BG      = Color3.fromRGB( 16,  16,  16),
         Frame2_Bdr     = Color3.fromRGB( 75,  75,  75),
-        -- Tab bar
         TabBar_BG      = Color3.fromRGB( 16,  16,  16),
         TabBar_Bdr     = Color3.fromRGB( 75,  75,  75),
         TabInactive_BG = Color3.fromRGB( 30,  30,  30),
         TabHover_BG    = Color3.fromRGB( 42,  42,  42),
         TabActive_BG   = accent,
-        -- Content
         Content_BG     = Color3.fromRGB( 16,  16,  16),
         Content_Bdr    = Color3.fromRGB( 75,  75,  75),
-        -- Text
         Text           = Color3.fromRGB(255, 255, 255),
         SubText        = Color3.fromRGB(160, 160, 160),
         DimText        = Color3.fromRGB( 85,  85,  85),
         SectionTitle   = Color3.fromRGB(180, 180, 180),
-        -- Misc
         Separator      = Color3.fromRGB( 75,  75,  75),
         Accent         = accent,
-        -- Checkbox / Toggle
         Checkbox_BG    = Color3.fromRGB( 22,  22,  22),
         Checkbox_Bdr   = Color3.fromRGB( 75,  75,  75),
         Checkbox_On    = accent,
-        -- Dropdown
         Dropdown_BG    = Color3.fromRGB( 30,  30,  30),
         Dropdown_List  = Color3.fromRGB( 22,  22,  22),
         Dropdown_Hover = Color3.fromRGB( 38,  38,  38),
         Dropdown_Sel   = accent,
-        -- Slider
         Slider_Track   = Color3.fromRGB( 40,  40,  40),
         Slider_Fill    = accent,
         Slider_Thumb   = accent,
         Slider_ValBox  = Color3.fromRGB( 22,  22,  22),
-        -- Tooltip
         Tooltip_BG     = Color3.fromRGB( 22,  22,  22),
         Tooltip_Bdr    = Color3.fromRGB( 75,  75,  75),
         Tooltip_Text   = Color3.fromRGB(200, 200, 200),
-        -- Notification type colours
         Notif = {
             info    = Color3.fromRGB( 75,  75,  75),
             success = Color3.fromRGB( 30, 140,  60),
             warning = Color3.fromRGB(200, 150,   0),
             error   = Color3.fromRGB(125,   0,   4),
         },
-        -- Typography
         Font     = Enum.Font.Code,
         FontSize = 14,
         HdrSize  = 11,
@@ -176,10 +191,17 @@ local function TweenLinear(obj, t, props)
         props):Play()
 end
 
+-- FIX #8 — Tween that returns its handle so callers can cancel it
+local function TweenQuadHandle(obj, t, props)
+    local tw = TweenService:Create(obj,
+        TweenInfo.new(t, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        props)
+    tw:Play()
+    return tw
+end
+
 -- ─────────────────────────────────────────────────────────────────────────────
--- Instance factory
--- FIX: Parent is always set LAST so the engine does not trigger layout
---      recalculations before all properties are applied.
+-- Instance factory — Parent set LAST
 -- ─────────────────────────────────────────────────────────────────────────────
 local function New(class, props)
     local o      = Instance.new(class)
@@ -197,18 +219,17 @@ end
 
 -- ─────────────────────────────────────────────────────────────────────────────
 -- MakeDraggable
---   handle     — GuiObject the user grabs
---   target     — GuiObject that physically moves
---   getEnabled — optional  () → bool   returning false blocks dragging
 --
--- FIX: A global UserInputService.InputEnded connection acts as a safety net
---      for cases where the mouse-up fires outside the handle (alt-tab, etc.).
+-- FIX #4 — The global UserInputService.InputChanged connection is stored per
+-- drag-session and disconnected when dragging ends.  This prevents stacking
+-- duplicate global listeners across multiple CreateWindow calls or re-runs.
 -- ─────────────────────────────────────────────────────────────────────────────
 local function MakeDraggable(handle, target, getEnabled)
     local dragging   = false
     local dragInput  = nil
     local startMouse = nil
     local startPos   = nil
+    local globalMove = nil   -- FIX #4: track the global move connection
 
     handle.InputBegan:Connect(function(inp)
         if getEnabled and not getEnabled() then return end
@@ -217,6 +238,25 @@ local function MakeDraggable(handle, target, getEnabled)
             dragging   = true
             startMouse = inp.Position
             startPos   = target.Position
+
+            -- FIX #4: create ONE global connection per drag, disconnect on end
+            if globalMove then globalMove:Disconnect() end
+            globalMove = UserInputService.InputChanged:Connect(function(i)
+                if not dragging then return end
+                if i.UserInputType ~= Enum.UserInputType.MouseMovement
+                and i.UserInputType ~= Enum.UserInputType.Touch then return end
+                if getEnabled and not getEnabled() then
+                    dragging = false
+                    globalMove:Disconnect()
+                    globalMove = nil
+                    return
+                end
+                local d = i.Position - startMouse
+                target.Position = UDim2.new(
+                    startPos.X.Scale,  startPos.X.Offset + d.X,
+                    startPos.Y.Scale,  startPos.Y.Offset + d.Y
+                )
+            end)
         end
     end)
 
@@ -227,43 +267,27 @@ local function MakeDraggable(handle, target, getEnabled)
         end
     end)
 
-    -- Global move
-    UserInputService.InputChanged:Connect(function(inp)
-        if not dragging then return end
-        if inp ~= dragInput then return end
-        if getEnabled and not getEnabled() then dragging = false return end
-        local d = inp.Position - startMouse
-        target.Position = UDim2.new(
-            startPos.X.Scale,  startPos.X.Offset + d.X,
-            startPos.Y.Scale,  startPos.Y.Offset + d.Y
-        )
-    end)
-
-    -- Safety net — release even when mouse-up happens off the handle
+    -- Safety-net release
     UserInputService.InputEnded:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
         or inp.UserInputType == Enum.UserInputType.Touch then
             dragging = false
+            -- FIX #4: clean up global move connection when drag ends
+            if globalMove then
+                globalMove:Disconnect()
+                globalMove = nil
+            end
         end
     end)
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Tooltip system  (module-level singleton, DisplayOrder = 20)
---
--- One shared ScreenGui hosts a single tooltip frame that moves with the
--- cursor.  Elements call Tooltip.Show(text, guiObject) on MouseEnter and
--- Tooltip.Hide() on MouseLeave.
---
--- The frame auto-repositions to stay inside the viewport:
---   • Prefers: cursor + (14, 6) offset
---   • Flips left if right edge would overflow
---   • Flips up   if bottom edge would overflow
+-- Tooltip system (module-level singleton, DisplayOrder = 20)
 -- ─────────────────────────────────────────────────────────────────────────────
 local Tooltip = (function()
     local gui, frame, label
     local moveConn = nil
-    local PADDING  = { x = 14, y = 6 }   -- offset from cursor tip
+    local PADDING  = { x = 14, y = 6 }
 
     local function Ensure()
         if gui and gui.Parent and gui.Parent == CoreGui then return end
@@ -276,8 +300,9 @@ local Tooltip = (function()
             DisplayOrder   = 20,
             ResetOnSpawn   = false,
             Enabled        = false,
-            Parent         = CoreGui,
         })
+        -- FIX #10: safe parent
+        SafeParent(gui)
 
         frame = New("Frame", {
             Name             = "TooltipFrame",
@@ -314,40 +339,26 @@ local Tooltip = (function()
 
     local function UpdatePosition(mousePos)
         if not frame then return end
-        local vp     = workspace.CurrentCamera.ViewportSize
-        local fSize  = frame.AbsoluteSize
-
-        local x = mousePos.X + PADDING.x
-        local y = mousePos.Y + PADDING.y
-
-        -- Flip left if overflows right edge
-        if x + fSize.X > vp.X - 4 then
-            x = mousePos.X - fSize.X - PADDING.x
-        end
-        -- Flip up if overflows bottom edge
-        if y + fSize.Y > vp.Y - 4 then
-            y = mousePos.Y - fSize.Y - PADDING.y
-        end
-
+        local vp    = workspace.CurrentCamera.ViewportSize
+        local fSize = frame.AbsoluteSize
+        local x     = mousePos.X + PADDING.x
+        local y     = mousePos.Y + PADDING.y
+        if x + fSize.X > vp.X - 4 then x = mousePos.X - fSize.X - PADDING.x end
+        if y + fSize.Y > vp.Y - 4 then y = mousePos.Y - fSize.Y - PADDING.y end
         frame.Position = UDim2.new(0, math.floor(x), 0, math.floor(y))
     end
 
     local function Show(text)
         Ensure()
-        label.Text = tostring(text)
+        label.Text  = tostring(text)
         gui.Enabled = true
-
-        -- Track mouse
         if moveConn then moveConn:Disconnect() end
         moveConn = UserInputService.InputChanged:Connect(function(inp)
             if inp.UserInputType == Enum.UserInputType.MouseMovement then
                 UpdatePosition(inp.Position)
             end
         end)
-
-        -- Initial position
-        local mp = UserInputService:GetMouseLocation()
-        UpdatePosition(mp)
+        UpdatePosition(UserInputService:GetMouseLocation())
     end
 
     local function Hide()
@@ -359,28 +370,30 @@ local Tooltip = (function()
 end)()
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- AttachTooltip  (internal)
--- Hooks MouseEnter / MouseLeave on a GuiObject to show/hide the tooltip.
--- tooltipText may be nil or "" — in that case nothing is attached.
+-- AttachTooltip
 -- ─────────────────────────────────────────────────────────────────────────────
 local function AttachTooltip(guiObj, tooltipText)
     if not tooltipText or tooltipText == "" then return end
-    guiObj.MouseEnter:Connect(function()
-        Tooltip.Show(tooltipText)
-    end)
-    guiObj.MouseLeave:Connect(function()
-        Tooltip.Hide()
-    end)
+    guiObj.MouseEnter:Connect(function() Tooltip.Show(tooltipText) end)
+    guiObj.MouseLeave:Connect(function() Tooltip.Hide() end)
 end
 
 -- ─────────────────────────────────────────────────────────────────────────────
--- Notification system  (module-level singleton, DisplayOrder = 10)
+-- Notification system (module-level singleton, DisplayOrder = 10)
 -- ─────────────────────────────────────────────────────────────────────────────
 local NotifGui, NotifContainer
 
+-- FIX #5 — Guard checks BOTH NotifGui AND NotifContainer are alive
 local function EnsureNotifGui()
-    -- Guard: check the gui actually exists inside CoreGui, not just non-nil
-    if NotifGui and NotifGui:IsDescendantOf(game) then return end
+    local guiAlive       = NotifGui       and NotifGui:IsDescendantOf(game)
+    local containerAlive = NotifContainer and NotifContainer:IsDescendantOf(game)
+
+    if guiAlive and containerAlive then return end
+
+    -- Destroy stale remnants
+    if NotifGui and NotifGui.Parent then
+        pcall(function() NotifGui:Destroy() end)
+    end
     local old = CoreGui:FindFirstChild("_notifs_")
     if old then old:Destroy() end
 
@@ -389,8 +402,10 @@ local function EnsureNotifGui()
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         DisplayOrder   = 10,
         ResetOnSpawn   = false,
-        Parent         = CoreGui,
     })
+    -- FIX #10: safe parent
+    SafeParent(NotifGui)
+
     NotifContainer = New("Frame", {
         Name                   = "Container",
         BackgroundTransparency = 1,
@@ -409,19 +424,6 @@ local function EnsureNotifGui()
     })
 end
 
---[[
-    Notify  (title, message, ntype, duration)
-
-    Card layout  300×60:
-    ┌─────────────────────────────────────────────┐
-    │▓▓▓▓│ Title                          y=8  h=18│
-    │ 4px│ message (wrapped)              y=28 h=24│
-    ├────┴────────────────────────────────────────┤ y=58 h=2  timer bar
-    └─────────────────────────────────────────────┘
-    Slide-in:  Card.x  310→0   Quad.Out 0.22s
-    Slide-out: Card.x    0→310 Quad.Out 0.16s → Wrapper:Destroy()
-    Timer:     TimerBar width  1→0  Linear over duration
-]]
 function UILibrary:Notify(title, message, ntype, duration)
     EnsureNotifGui()
     ntype    = ntype    or "info"
@@ -457,7 +459,6 @@ function UILibrary:Notify(title, message, ntype, duration)
         Parent           = Wrapper,
     })
 
-    -- Accent sidebar  4×60
     New("Frame", {
         BackgroundColor3 = accent,
         BorderSizePixel  = 0,
@@ -466,7 +467,6 @@ function UILibrary:Notify(title, message, ntype, duration)
         Parent           = Card,
     })
 
-    -- Title  x=12  y=8  h=18
     New("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel        = 0,
@@ -482,7 +482,6 @@ function UILibrary:Notify(title, message, ntype, duration)
         Parent                 = Card,
     })
 
-    -- Message  x=12  y=28  h=24
     New("TextLabel", {
         BackgroundTransparency = 1,
         BorderSizePixel        = 0,
@@ -498,7 +497,6 @@ function UILibrary:Notify(title, message, ntype, duration)
         Parent                 = Card,
     })
 
-    -- Timer bar  x=0  y=58  h=2  (sits on very last 2px of the 60px card)
     local TimerBar = New("Frame", {
         BackgroundColor3 = accent,
         BorderSizePixel  = 0,
@@ -525,26 +523,6 @@ end
 -- ─────────────────────────────────────────────────────────────────────────────
 -- CreateWindow
 -- ─────────────────────────────────────────────────────────────────────────────
---[[
-  PIXEL MATH (all figures in px)
-  ───────────────────────────────
-  Frame1 (outer shell)           630 × 390
-  Frame2 (inner, offset 5,5)     620 × 380   border 1px
-  TabBar (offset 6,8)            608 × 45    border 1px
-    4 tabs × 151px + 3 gaps × 1px = 607px → fits in 608px ✓
-  TabBar bottom edge = 8 + 45 = 53px
-  Content (offset 6,59)          608 × 314   border 1px
-    gap below TabBar = 59 - 53 = 6px  ✓
-    content bottom   = 59 + 314 = 373px
-    Frame2 inner h   = 380 - 2(border) = 378px
-    bottom gap       = 378 - 373 = 5px  ✓
-  ScrollingFrame inside Content  1,0,1,0
-  UIPadding 8px all → usable     592 × 298
-  ColumnHolder width              592px
-  Column width  (592-8)/2 = 292px
-  RightCol x offset = 292 + 8 = 300px
-  RightCol right edge = 300 + 292 = 592px ✓
-]]
 function UILibrary:CreateWindow(cfg)
     cfg = cfg or {}
     local toggleKey   = cfg.key    or Enum.KeyCode.RightShift
@@ -566,8 +544,9 @@ function UILibrary:CreateWindow(cfg)
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         DisplayOrder   = 1,
         ResetOnSpawn   = false,
-        Parent         = CoreGui,
     })
+    -- FIX #10: safe parent
+    SafeParent(Gui)
 
     -- ── Frame1: 630×390  no border  centered ─────────────────────────────────
     local Frame1 = New("Frame", {
@@ -617,23 +596,10 @@ function UILibrary:CreateWindow(cfg)
         Parent           = Frame2,
     })
 
-    -- ── Dragging
-    -- Only Frame1 (outer shell) and TabBar are drag handles.
-    -- Frame2 is excluded: registering it eats mouse-down events on elements.
     MakeDraggable(TabBar, Frame1)
 
     -- ─────────────────────────────────────────────────────────────────────────
     -- Watermark
-    -- Always Enabled=true so it remains visible even when the main GUI closes.
-    -- Dragging is blocked when the main GUI is hidden via wmkEnabled guard.
-    --
-    -- Layout (UIListLayout Horizontal, all 26px tall):
-    --   AccentBar 4 | Spacer 6 | ScriptLbl | [Div | UserLbl] |
-    --   [Div | FPSLbl] | [Div | ClockLbl] | Spacer 8
-    --
-    -- WmkF1: auto×28  BG=Frame1_BG  (outer glow / shadow colour)
-    -- WmkF2: offset(1,1) size(1,-2,0,26) auto-X  BG=Frame2_BG  border
-    --   The 1px offset on all sides = simulated 1px border via parent colour.
     -- ─────────────────────────────────────────────────────────────────────────
     local WmkGui = New("ScreenGui", {
         Name           = "_wmk_",
@@ -641,8 +607,9 @@ function UILibrary:CreateWindow(cfg)
         DisplayOrder   = 5,
         ResetOnSpawn   = false,
         Enabled        = true,
-        Parent         = CoreGui,
     })
+    -- FIX #10: safe parent
+    SafeParent(WmkGui)
 
     local WmkF1 = New("Frame", {
         Name             = "WmkF1",
@@ -672,7 +639,6 @@ function UILibrary:CreateWindow(cfg)
         Parent            = WmkF2,
     })
 
-    -- Watermark builder helpers
     local wmkOrder = 0
     local function WmkSpacer(w)
         wmkOrder += 1
@@ -685,15 +651,11 @@ function UILibrary:CreateWindow(cfg)
         })
     end
     local function WmkDivider()
-        -- 4px gap + 1px line + 4px gap  (total 9px per divider)
         WmkSpacer(4)
         wmkOrder += 1
         New("Frame", {
             BackgroundColor3 = T.Separator,
             BorderSizePixel  = 0,
-            -- 14px line centred in 26px tall strip  → y=(26-14)/2 = 6px
-            -- We use VerticalAlignment=Center on the UIListLayout, so setting
-            -- the height to 14 and letting the layout centre it is correct.
             Size             = UDim2.new(0, 1, 0, 14),
             LayoutOrder      = wmkOrder,
             Parent           = WmkF2,
@@ -718,7 +680,6 @@ function UILibrary:CreateWindow(cfg)
         })
     end
 
-    -- AccentBar  4×26
     wmkOrder += 1
     New("Frame", {
         Name             = "AccentBar",
@@ -729,16 +690,11 @@ function UILibrary:CreateWindow(cfg)
         Parent           = WmkF2,
     })
     WmkSpacer(6)
-
-    -- Script name
     WmkLabel(scriptName, 13, T.Text)
-
-    -- Username
     WmkDivider()
     local localName = (Players.LocalPlayer and Players.LocalPlayer.Name) or "Player"
     WmkLabel(localName, 11, T.SubText)
 
-    -- Optional FPS
     local FpsLabel = nil
     if showFPS then
         WmkDivider()
@@ -746,17 +702,14 @@ function UILibrary:CreateWindow(cfg)
         FpsLabel.Name = "FPS"
     end
 
-    -- Optional Clock
     local ClockLabel = nil
     if showClock then
         WmkDivider()
         ClockLabel = WmkLabel("00:00", 11, T.SubText)
         ClockLabel.Name = "Clock"
     end
-
     WmkSpacer(8)
 
-    -- FPS loop  (samples every 0.5s to keep text changes infrequent)
     if FpsLabel then
         local frames, timer = 0, 0
         RunService.RenderStepped:Connect(function(dt)
@@ -779,8 +732,6 @@ function UILibrary:CreateWindow(cfg)
         end)
     end
 
-    -- Clock loop
-    -- FIX: Cache last value and only write to .Text when the minute changes.
     if ClockLabel then
         local lastClock = ""
         RunService.Heartbeat:Connect(function()
@@ -793,12 +744,10 @@ function UILibrary:CreateWindow(cfg)
         end)
     end
 
-    -- Watermark dragging: only interactive when main GUI is open
     local function wmkEnabled() return Frame1.Visible end
     MakeDraggable(WmkF1, WmkF1, wmkEnabled)
     MakeDraggable(WmkF2, WmkF1, wmkEnabled)
 
-    -- Toggle key: hides/shows main GUI only; watermark stays visible always
     UserInputService.InputBegan:Connect(function(inp, processed)
         if not processed and inp.KeyCode == toggleKey then
             Frame1.Visible = not Frame1.Visible
@@ -827,15 +776,6 @@ function UILibrary:CreateWindow(cfg)
     -- ─────────────────────────────────────────────────────────────────────────
     -- AddTab
     -- ─────────────────────────────────────────────────────────────────────────
-    --[[
-      Tab button: 151×45  no border
-        4 tabs × 151 + 3 × 1(gap) = 607px ≤ 608px TabBar width ✓
-      Active underbar: 2px strip at very bottom of button  BG=accent
-      ScrollingFrame: fills ContentArea (1,0,1,0)  pad 8px  scrollbar 2px Y
-      ColumnHolder: 592px wide  AutomaticSize=Y
-        LeftCol  x=0    w=292
-        RightCol x=300  w=292   (300+292=592 ✓)
-    ]]
     function Window:AddTab(name)
         local index = #self._tabs + 1
 
@@ -856,7 +796,6 @@ function UILibrary:CreateWindow(cfg)
             Parent           = self._tabBar,
         })
 
-        -- Active underbar: 2px at very bottom
         local ActiveBar = New("Frame", {
             Name             = "ActiveBar",
             BackgroundColor3 = T.Accent,
@@ -868,7 +807,6 @@ function UILibrary:CreateWindow(cfg)
             Parent           = Btn,
         })
 
-        -- Page (ScrollingFrame)
         local Page = New("ScrollingFrame", {
             BackgroundTransparency = 1,
             BorderSizePixel        = 0,
@@ -898,7 +836,6 @@ function UILibrary:CreateWindow(cfg)
             Parent                 = Page,
         })
 
-        -- LeftCol  x=0  w=292
         local LeftCol = New("Frame", {
             Name                   = "LeftCol",
             BackgroundTransparency = 1,
@@ -914,7 +851,6 @@ function UILibrary:CreateWindow(cfg)
             Parent    = LeftCol,
         })
 
-        -- RightCol  x=300  w=292  right edge=592 ✓
         local RightCol = New("Frame", {
             Name                   = "RightCol",
             BackgroundTransparency = 1,
@@ -937,19 +873,25 @@ function UILibrary:CreateWindow(cfg)
             _leftCol  = LeftCol,
             _rightCol = RightCol,
             _window   = self,
+            -- FIX #8: track in-flight tweens per tab button
+            _btnTween = nil,
         }
 
-        -- FIX: Only reset the previously active tab, not all tabs.
+        -- FIX #8 — Cancel any pending button tween before starting a new one
         function Tab:Select()
             local prev = self._window._activeTab
             if prev and prev ~= self then
                 prev._page.Visible = false
                 prev._bar.Visible  = false
-                TweenQuad(prev._btn, 0.10, { BackgroundColor3 = T.TabInactive_BG })
+                if prev._btnTween then prev._btnTween:Cancel() end
+                prev._btnTween = TweenQuadHandle(prev._btn, 0.10,
+                    { BackgroundColor3 = T.TabInactive_BG })
             end
             self._page.Visible = true
             self._bar.Visible  = true
-            TweenQuad(self._btn, 0.10, { BackgroundColor3 = T.TabActive_BG })
+            if self._btnTween then self._btnTween:Cancel() end
+            self._btnTween = TweenQuadHandle(self._btn, 0.10,
+                { BackgroundColor3 = T.TabActive_BG })
             self._window._activeTab = self
         end
 
@@ -972,18 +914,9 @@ function UILibrary:CreateWindow(cfg)
         -- ─────────────────────────────────────────────────────────────────────
         -- AddSection
         -- ─────────────────────────────────────────────────────────────────────
-        --[[
-          SectionFrame  292×auto  transparent  AutomaticSize=Y
-          Header        292×20
-            Title  Font=Code 11  Left/Center  UPPER  RGB(180,180,180)
-            Sep    1px line at y=19  RGB(75,75,75)
-          Body  pos y=21  PaddingTop=5  gap=4px  AutomaticSize=Y
-        ]]
         function Tab:AddSection(sectionName, side)
             side = (side == "right") and "right" or "left"
-            local Col = (side == "right") and self._rightCol or self._leftCol
-
-            -- Use child count for LayoutOrder (safe, monotonically increasing)
+            local Col   = (side == "right") and self._rightCol or self._leftCol
             local order = #Col:GetChildren()
 
             local SectionFrame = New("Frame", {
@@ -996,7 +929,6 @@ function UILibrary:CreateWindow(cfg)
                 Parent                 = Col,
             })
 
-            -- Header: 292×20
             local Header = New("Frame", {
                 Name                   = "Header",
                 BackgroundTransparency = 1,
@@ -1016,7 +948,6 @@ function UILibrary:CreateWindow(cfg)
                 TextYAlignment         = Enum.TextYAlignment.Center,
                 Parent                 = Header,
             })
-            -- Separator at y=19 (last px of 20px header)
             New("Frame", {
                 Name             = "Sep",
                 BackgroundColor3 = T.Separator,
@@ -1026,7 +957,6 @@ function UILibrary:CreateWindow(cfg)
                 Parent           = Header,
             })
 
-            -- Body: starts at y=21, 5px top padding, 4px gap between elements
             local Body = New("Frame", {
                 Name                   = "Body",
                 BackgroundTransparency = 1,
@@ -1047,9 +977,11 @@ function UILibrary:CreateWindow(cfg)
             })
 
             local elementCount = 0
-            local Section      = { _body = Body }
+            -- FIX #7: track all dropdowns in this section so we can close others
+            local sectionDropdowns = {}
 
-            -- Shared helper: next element layout order
+            local Section = { _body = Body }
+
             local function NextOrder()
                 elementCount += 1
                 return elementCount
@@ -1058,14 +990,6 @@ function UILibrary:CreateWindow(cfg)
             -- ─────────────────────────────────────────────────────────────────
             -- AddToggle
             -- ─────────────────────────────────────────────────────────────────
-            --[[
-              Row  292×26  transparent
-              Box  14×14   pos x=4  y=6  (centred: (26-14)/2 = 6 ✓)
-                           Border RGB(75,75,75)
-                           BG ↔ accent  Quad.Out 0.10s
-              Lbl  pos x=24  Size(1,-24,1,0)  Left/Center  Font=Code 14
-                   tooltip hooks onto Row
-            ]]
             function Section:AddToggle(label, default, callback, tooltip)
                 default  = (default == true)
                 callback = callback or function() end
@@ -1117,41 +1041,19 @@ function UILibrary:CreateWindow(cfg)
                 AttachTooltip(Row, tooltip)
 
                 return {
-                    Set    = function(_, v) Apply(v, true)       end,
-                    Get    = function(_)    return state          end,
-                    Toggle = function(_)    Apply(not state, false) end,
+                    Set    = function(_, v) Apply(v, true)          end,
+                    Get    = function(_)    return state             end,
+                    Toggle = function(_)    Apply(not state, false)  end,
                 }
             end
 
             -- ─────────────────────────────────────────────────────────────────
             -- AddSlider
             -- ─────────────────────────────────────────────────────────────────
-            --[[
-              Row  292×40  transparent
-
-              TopRow  (implicit, first 18px)
-                Lbl    pos(0,0)   Size(1,-48,0,18)  Left/Center  Font=Code 14
-                ValBox pos(1,-46,0,0)  Size(0,46,0,18)  BG=dark  border
-                  ValLbl  fills ValBox  Center  Font=Code 11
-                           click → TextBox overlay for manual entry
-
-              TrackBG  pos(0,26)  Size(1,0,0,6)  BG=track  no border
-                Fill   pos(0,0)  Size(frac,0,1,0)  BG=accent
-                Thumb  Size(0,8,0,16)  pos(frac,-4,0,-5)  BG=accent  ZIndex=3
-                        -5y centres 16px thumb on 6px track: (6-16)/2 = -5 ✓
-
-              Drag: global InputChanged / InputEnded listeners are created ONCE
-              per slider and disconnected when not sliding.
-              FIX: No persistent global connections per slider instance.
-
-              Track click and Thumb drag both set sliding=true.
-              One shared global InputChanged connection is used per slider.
-              InputEnded cleans up sliding state.
-            ]]
             function Section:AddSlider(label, min, max, default, decimals, callback, tooltip)
-                min      = tonumber(min)     or 0
-                max      = tonumber(max)     or 100
-                default  = tonumber(default) or min
+                min      = tonumber(min)      or 0
+                max      = tonumber(max)      or 100
+                default  = tonumber(default)  or min
                 decimals = tonumber(decimals) or 0
                 callback = callback           or function() end
 
@@ -1167,8 +1069,6 @@ function UILibrary:CreateWindow(cfg)
                     Parent                 = Body,
                 })
 
-                -- Label: occupies left portion of the 18px top row
-                -- Leaves 48px on the right (2px gap + 46px ValBox)
                 New("TextLabel", {
                     Name                   = "Lbl",
                     BackgroundTransparency = 1,
@@ -1184,7 +1084,6 @@ function UILibrary:CreateWindow(cfg)
                     Parent                 = Row,
                 })
 
-                -- ValBox: rightmost 46×18 (wider for longer decimals)
                 local ValBox = New("Frame", {
                     Name             = "ValBox",
                     BackgroundColor3 = T.Slider_ValBox,
@@ -1209,10 +1108,6 @@ function UILibrary:CreateWindow(cfg)
                     Parent                 = ValBox,
                 })
 
-                -- TrackBG: y=26  h=6  (18 top + 2 gap + 14 thumb overlap → track at 26)
-                -- Using y=26 means the 16px thumb centred on it spans y=18 to y=34,
-                -- with the thumb exactly centred: (26 + 6/2) - 8 = 21  (top of thumb)
-                -- → thumb top=21, bottom=37, track centre=29, all within 40px row ✓
                 local TrackBG = New("Frame", {
                     Name             = "TrackBG",
                     BackgroundColor3 = T.Slider_Track,
@@ -1231,8 +1126,6 @@ function UILibrary:CreateWindow(cfg)
                     Parent           = TrackBG,
                 })
 
-                -- Thumb: 8×16  ZIndex=3 so it renders above Fill
-                -- y offset = (6-16)/2 = -5  centres thumb on track ✓
                 local Thumb = New("Frame", {
                     Name             = "Thumb",
                     BackgroundColor3 = T.Slider_Thumb,
@@ -1243,25 +1136,20 @@ function UILibrary:CreateWindow(cfg)
                     Parent           = TrackBG,
                 })
 
-                -- Internal value setter (no tween on Fill/Thumb for responsiveness)
                 local function SetValue(v, silent)
                     value = Round(Clamp(v, min, max), decimals)
                     local frac = Map(value, min, max, 0, 1)
-                    Fill.Size     = UDim2.new(frac, 0, 1, 0)
-                    -- Thumb x: right edge of fill minus half thumb width (4px)
+                    Fill.Size      = UDim2.new(frac, 0, 1, 0)
                     Thumb.Position = UDim2.new(frac, -4, 0, -5)
-                    ValLbl.Text   = FormatNum(value, decimals)
+                    ValLbl.Text    = FormatNum(value, decimals)
                     if not silent then callback(value) end
                 end
 
                 SetValue(value, true)
 
-                -- ── Drag interaction
-                -- FIX: Use a single sliding flag. Connect global listeners only
-                -- when sliding begins and disconnect them when sliding ends.
-                local sliding      = false
-                local moveConn     = nil
-                local releaseConn  = nil
+                local sliding     = false
+                local moveConn    = nil
+                local releaseConn = nil
 
                 local function StopSliding()
                     sliding = false
@@ -1269,9 +1157,10 @@ function UILibrary:CreateWindow(cfg)
                     if releaseConn then releaseConn:Disconnect(); releaseConn = nil end
                 end
 
+                -- FIX #3 — Read AbsolutePosition/Size fresh every frame
                 local function StartSliding(inp)
                     sliding = true
-                    -- Snap immediately to click point
+
                     local absX = TrackBG.AbsolutePosition.X
                     local absW = TrackBG.AbsoluteSize.X
                     local frac = Clamp((inp.Position.X - absX) / absW, 0, 1)
@@ -1281,7 +1170,10 @@ function UILibrary:CreateWindow(cfg)
                         if not sliding then return end
                         if i.UserInputType ~= Enum.UserInputType.MouseMovement
                         and i.UserInputType ~= Enum.UserInputType.Touch then return end
-                        local fx = Clamp((i.Position.X - absX) / absW, 0, 1)
+                        -- FIX #3: re-read per frame so window drag doesn't break slider
+                        local curAbsX = TrackBG.AbsolutePosition.X
+                        local curAbsW = TrackBG.AbsoluteSize.X
+                        local fx = Clamp((i.Position.X - curAbsX) / curAbsW, 0, 1)
                         SetValue(Map(fx, 0, 1, min, max), false)
                     end)
 
@@ -1300,8 +1192,6 @@ function UILibrary:CreateWindow(cfg)
                     end
                 end)
 
-                -- Thumb also starts drag (no immediate position snap needed since
-                -- the user clicked the thumb specifically)
                 Thumb.InputBegan:Connect(function(inp)
                     if inp.UserInputType == Enum.UserInputType.MouseButton1
                     or inp.UserInputType == Enum.UserInputType.Touch then
@@ -1309,61 +1199,51 @@ function UILibrary:CreateWindow(cfg)
                     end
                 end)
 
-                -- ValBox click: manual text entry via a temporary TextBox overlay
+                -- FIX #9 — ValBox manual entry: guard against destroyed ValBox
                 ValLbl.MouseButton1Click:Connect(function()
                     if sliding then return end
+                    -- Check ValBox is still alive before parenting
+                    if not ValBox or not ValBox.Parent then return end
+
                     local TB = New("TextBox", {
-                        Name                   = "_SliderInput",
-                        BackgroundColor3       = T.Slider_ValBox,
-                        BorderColor3           = T.Accent,
-                        Size                   = UDim2.new(1, 0, 1, 0),
-                        Font                   = T.Font,
-                        Text                   = FormatNum(value, decimals),
-                        TextColor3             = T.Text,
-                        TextSize               = 11,
-                        TextXAlignment         = Enum.TextXAlignment.Center,
-                        ClearTextOnFocus       = true,
-                        Parent                 = ValBox,
+                        Name             = "_SliderInput",
+                        BackgroundColor3 = T.Slider_ValBox,
+                        BorderColor3     = T.Accent,
+                        Size             = UDim2.new(1, 0, 1, 0),
+                        Font             = T.Font,
+                        Text             = FormatNum(value, decimals),
+                        TextColor3       = T.Text,
+                        TextSize         = 11,
+                        TextXAlignment   = Enum.TextXAlignment.Center,
+                        ClearTextOnFocus = true,
+                        Parent           = ValBox,
                     })
                     TB:CaptureFocus()
                     TB.FocusLost:Connect(function()
-                        local n = tonumber(TB.Text)
-                        if n then SetValue(n, false) end
-                        TB:Destroy()
+                        -- FIX #9: check TB and ValBox still valid before acting
+                        local ok, err = pcall(function()
+                            if not TB or not TB.Parent then return end
+                            local n = tonumber(TB.Text)
+                            if n then SetValue(n, false) end
+                            TB:Destroy()
+                        end)
+                        if not ok then
+                            -- TB or ValBox was already destroyed; nothing to do
+                        end
                     end)
                 end)
 
                 AttachTooltip(Row, tooltip)
 
                 return {
-                    Set = function(_, v) SetValue(v, true)  end,
-                    Get = function(_)    return value        end,
+                    Set = function(_, v) SetValue(v, true) end,
+                    Get = function(_)    return value       end,
                 }
             end
 
             -- ─────────────────────────────────────────────────────────────────
             -- AddDropdown
             -- ─────────────────────────────────────────────────────────────────
-            --[[
-              CLOSED_H = 26
-              OPEN_H   = 27 + n×22   (27 = DHeader 26 + 1px border gap)
-
-              DHeader  292×26  BG=Dropdown_BG  border=Separator
-                SelLabel  x=6  Size(1,-26,1,0)  Left/Center  TruncateAtEnd
-                Arrow     x=(1,-20)  Size(0,20,1,0)  "▾"/"▴"  FontSize=12
-                           ZIndex=2 so it sits above DHeader's InputBegan
-
-              List  pos y=27  Size(1,0,0,n×22)  BG=Dropdown_List  border=Sep
-                Item[i]  pos=(0,(i-1)×22)  Size(1,0,0,22)
-                  ItemBtn  full size  Left/Center  PaddingLeft=6
-                           TextColor3: Dropdown_Sel if selected, else Text
-
-              FIX: Arrow sits inside DHeader. If we attach InputBegan to DHeader
-              AND MouseButton1Click to Arrow, clicking the arrow fires BOTH,
-              causing an instant open→close.  Solution: DHeader's InputBegan
-              checks whether the mouse position is within the Arrow's AbsoluteRect
-              and skips if so, deferring entirely to Arrow's handler.
-            ]]
             function Section:AddDropdown(label, options, default, callback, tooltip)
                 options  = options  or {}
                 callback = callback or function() end
@@ -1408,7 +1288,6 @@ function UILibrary:CreateWindow(cfg)
                     Parent                 = DHeader,
                 })
 
-                -- Arrow: ZIndex=2  so hover/click events on it are prioritised
                 local Arrow = New("TextButton", {
                     Name                   = "Arrow",
                     BackgroundTransparency = 1,
@@ -1436,19 +1315,46 @@ function UILibrary:CreateWindow(cfg)
                     Parent           = Row,
                 })
 
+                -- FIX #7: expose a Close method so sibling dropdowns can close us
+                local ddEntry = {}
+
                 local function SetOpen(open)
+                    -- FIX #7: close every other dropdown in this section first
+                    if open then
+                        for _, entry in ipairs(sectionDropdowns) do
+                            if entry ~= ddEntry and entry.isOpen then
+                                entry.Close()
+                            end
+                        end
+                    end
                     isOpen       = open
                     Arrow.Text   = isOpen and "▴" or "▾"
                     List.Visible = isOpen
                     Row.Size     = UDim2.new(1, 0, 0, isOpen and OPEN_H or CLOSED_H)
                 end
 
+                ddEntry.isOpen = false
+                ddEntry.Close  = function()
+                    isOpen           = false
+                    ddEntry.isOpen   = false
+                    Arrow.Text       = "▾"
+                    List.Visible     = false
+                    Row.Size         = UDim2.new(1, 0, 0, CLOSED_H)
+                end
+
+                -- Keep ddEntry.isOpen in sync
+                local _origSetOpen = SetOpen
+                SetOpen = function(open)
+                    _origSetOpen(open)
+                    ddEntry.isOpen = open
+                end
+
+                table.insert(sectionDropdowns, ddEntry)
+
                 local function Toggle() SetOpen(not isOpen) end
 
-                -- FIX: Guard DHeader InputBegan so it does not double-fire with Arrow
                 DHeader.InputBegan:Connect(function(inp)
                     if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
-                    -- Check if click landed on arrow — if so, let Arrow handle it
                     local mp = UserInputService:GetMouseLocation()
                     local ap = Arrow.AbsolutePosition
                     local as = Arrow.AbsoluteSize
@@ -1460,7 +1366,6 @@ function UILibrary:CreateWindow(cfg)
                 end)
                 Arrow.MouseButton1Click:Connect(Toggle)
 
-                -- Build item refs
                 local itemRefs = {}
 
                 for i, opt in ipairs(options) do
@@ -1486,10 +1391,7 @@ function UILibrary:CreateWindow(cfg)
                         AutoButtonColor        = false,
                         Parent                 = Item,
                     })
-                    New("UIPadding", {
-                        PaddingLeft = UDim.new(0, 6),
-                        Parent      = ItemBtn,
-                    })
+                    New("UIPadding", { PaddingLeft = UDim.new(0, 6), Parent = ItemBtn })
 
                     itemRefs[opt] = ItemBtn
 
@@ -1515,7 +1417,8 @@ function UILibrary:CreateWindow(cfg)
                 AttachTooltip(DHeader, tooltip)
 
                 return {
-                    Set = function(_, v)
+                    -- FIX #6: silent=true so programmatic Set does not fire callback
+                    Set = function(_, v, silent)
                         if itemRefs[selected] then
                             itemRefs[selected].TextColor3 = T.Text
                         end
@@ -1525,7 +1428,7 @@ function UILibrary:CreateWindow(cfg)
                             itemRefs[v].TextColor3 = T.Dropdown_Sel
                         end
                         if isOpen then SetOpen(false) end
-                        callback(selected)
+                        if not silent then callback(selected) end
                     end,
                     Get = function(_) return selected end,
                 }
@@ -1534,18 +1437,6 @@ function UILibrary:CreateWindow(cfg)
             -- ─────────────────────────────────────────────────────────────────
             -- AddMultiDropdown
             -- ─────────────────────────────────────────────────────────────────
-            --[[
-              Same shell as AddDropdown + per-item checkboxes + footer.
-              CLOSED_H = 26
-              ITEM_H   = 22
-              FOOTER_H = 22
-              OPEN_H   = 27 + n×22 + 22  (footer included in LIST_H)
-
-              Checkbox per item: 12×12  x=6  y=(22-12)/2=5  centred ✓
-              ItemLbl: x=24  Size(1,-30,1,0)  (24 start + 6 right pad = 30)
-
-              FIX: Same double-fire fix applied — Arrow click guarded in DHeader.
-            ]]
             function Section:AddMultiDropdown(label, options, defaults, callback, tooltip)
                 options  = options  or {}
                 defaults = defaults or {}
@@ -1622,12 +1513,34 @@ function UILibrary:CreateWindow(cfg)
                     Parent           = Row,
                 })
 
+                -- FIX #7: same auto-close pattern for MultiDropdown
+                local mddEntry = {}
+
                 local function SetOpen(open)
-                    isOpen       = open
-                    Arrow.Text   = isOpen and "▴" or "▾"
-                    List.Visible = isOpen
-                    Row.Size     = UDim2.new(1, 0, 0, isOpen and OPEN_H or CLOSED_H)
+                    if open then
+                        for _, entry in ipairs(sectionDropdowns) do
+                            if entry ~= mddEntry and entry.isOpen then
+                                entry.Close()
+                            end
+                        end
+                    end
+                    isOpen         = open
+                    mddEntry.isOpen = open
+                    Arrow.Text     = isOpen and "▴" or "▾"
+                    List.Visible   = isOpen
+                    Row.Size       = UDim2.new(1, 0, 0, isOpen and OPEN_H or CLOSED_H)
                 end
+
+                mddEntry.isOpen = false
+                mddEntry.Close  = function()
+                    isOpen          = false
+                    mddEntry.isOpen = false
+                    Arrow.Text      = "▾"
+                    List.Visible    = false
+                    Row.Size        = UDim2.new(1, 0, 0, CLOSED_H)
+                end
+
+                table.insert(sectionDropdowns, mddEntry)
 
                 local function Toggle() SetOpen(not isOpen) end
 
@@ -1653,7 +1566,6 @@ function UILibrary:CreateWindow(cfg)
                     end
                 end
 
-                -- FIX: same double-fire guard for arrow click
                 DHeader.InputBegan:Connect(function(inp)
                     if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
                     local mp = UserInputService:GetMouseLocation()
@@ -1679,7 +1591,6 @@ function UILibrary:CreateWindow(cfg)
                         Parent           = List,
                     })
 
-                    -- Checkbox: 12×12  x=6  y=5  centred: (22-12)/2=5 ✓
                     local CB = New("Frame", {
                         Name             = "CB",
                         BackgroundColor3 = selected[opt] and T.Checkbox_On or T.Checkbox_BG,
@@ -1690,7 +1601,6 @@ function UILibrary:CreateWindow(cfg)
                     })
                     itemBoxes[opt] = CB
 
-                    -- ItemLbl: x=24  right pad 6 → Size(1,-30,1,0)
                     local ItemLbl = New("TextLabel", {
                         Name                   = "Lbl",
                         BackgroundTransparency = 1,
@@ -1707,7 +1617,6 @@ function UILibrary:CreateWindow(cfg)
                         Parent                 = Item,
                     })
 
-                    -- Invisible button over the entire row  ZIndex=2
                     local ItemBtn = New("TextButton", {
                         BackgroundTransparency = 1,
                         BorderSizePixel        = 0,
@@ -1736,8 +1645,6 @@ function UILibrary:CreateWindow(cfg)
                     end)
                 end
 
-                -- ── Footer: "Select All" | "Clear"
-                -- Top 1px separator + two equal halves split by a 1px divider
                 local Footer = New("Frame", {
                     Name             = "Footer",
                     BackgroundColor3 = Color3.fromRGB(18, 18, 18),
@@ -1770,7 +1677,6 @@ function UILibrary:CreateWindow(cfg)
                     Parent                 = Footer,
                 })
 
-                -- Centre divider
                 New("Frame", {
                     BackgroundColor3 = T.Separator,
                     BorderSizePixel  = 0,
@@ -1830,12 +1736,11 @@ function UILibrary:CreateWindow(cfg)
                 BtnClear.MouseButton1Click:Connect(function() ApplyAll(false) end)
 
                 AttachTooltip(DHeader, tooltip)
-
-                -- Initial header state
                 RefreshHeader()
 
                 return {
-                    Set = function(_, tbl)
+                    -- FIX #6: silent flag for programmatic Set
+                    Set = function(_, tbl, silent)
                         selected = {}
                         for _, v in ipairs(tbl) do selected[v] = true end
                         for i, opt in ipairs(options) do
@@ -1852,7 +1757,7 @@ function UILibrary:CreateWindow(cfg)
                             end
                         end
                         RefreshHeader()
-                        callback(GetSelection())
+                        if not silent then callback(GetSelection()) end
                     end,
                     Get       = function(_) return GetSelection() end,
                     Clear     = function(_) ApplyAll(false)       end,
@@ -1863,15 +1768,6 @@ function UILibrary:CreateWindow(cfg)
             -- ─────────────────────────────────────────────────────────────────
             -- AddTextInput
             -- ─────────────────────────────────────────────────────────────────
-            --[[
-              Row  292×44
-                Lbl    pos(0,0)   Size(1,0,0,18)  Left/Center  Font=Code 14
-                Field  pos(0,22)  Size(1,0,0,22)  BG=dark  border=Separator
-                  TB   fills Field  PaddingLeft/Right=6px
-                       border turns accent on focus, separator on blur
-                       FocusLost fires callback(text, enterPressed)
-                       live mode fires callback(text, false) on every char change
-            ]]
             function Section:AddTextInput(label, placeholder, callback, cfg)
                 cfg         = cfg or {}
                 placeholder = placeholder or ""
@@ -1969,11 +1865,13 @@ function UILibrary:CreateWindow(cfg)
             end
 
             -- ─────────────────────────────────────────────────────────────────
-            -- AddLabel  (static read-only info text — 292×18)
+            -- AddLabel
+            -- FIX #1 — NextOrder() called first so LayoutOrder is correct
             -- ─────────────────────────────────────────────────────────────────
             function Section:AddLabel(text, tooltip)
+                local order = NextOrder()   -- FIX #1: capture AFTER increment
                 local Lbl = New("TextLabel", {
-                    Name                   = "Label_" .. NextOrder(),
+                    Name                   = "Label_" .. order,
                     BackgroundTransparency = 1,
                     BorderSizePixel        = 0,
                     Size                   = UDim2.new(1, 0, 0, 18),
@@ -1983,7 +1881,7 @@ function UILibrary:CreateWindow(cfg)
                     TextSize               = T.HdrSize,
                     TextXAlignment         = Enum.TextXAlignment.Left,
                     TextYAlignment         = Enum.TextYAlignment.Center,
-                    LayoutOrder            = elementCount,
+                    LayoutOrder            = order,
                     Parent                 = Body,
                 })
                 AttachTooltip(Lbl, tooltip)
@@ -1994,15 +1892,17 @@ function UILibrary:CreateWindow(cfg)
             end
 
             -- ─────────────────────────────────────────────────────────────────
-            -- AddSeparator  (1px line with 4px top/bottom breathing room → 9px)
+            -- AddSeparator
+            -- FIX #2 — NextOrder() called first so LayoutOrder is correct
             -- ─────────────────────────────────────────────────────────────────
             function Section:AddSeparator()
+                local order = NextOrder()   -- FIX #2: capture AFTER increment
                 local Wrap = New("Frame", {
-                    Name                   = "Sep_" .. NextOrder(),
+                    Name                   = "Sep_" .. order,
                     BackgroundTransparency = 1,
                     BorderSizePixel        = 0,
                     Size                   = UDim2.new(1, 0, 0, 9),
-                    LayoutOrder            = elementCount,
+                    LayoutOrder            = order,
                     Parent                 = Body,
                 })
                 New("Frame", {
