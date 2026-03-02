@@ -1,12 +1,59 @@
 --[[
-    UILibrary — CSGO-style, pixel-perfect, faithful to original dump
-    Draggable via tab bar. No title bar. No rounded corners anywhere.
+    UILibrary — CSGO-style, pixel-perfect
+    ════════════════════════════════════════════════════════════════
+
+    Full layout tree (all values in pixels, origin top-left):
+
+    ScreenGui (_index_)
+    └── _frame1          630 × 390   no border     [screen center]
+        └── _frame2      620 × 380   at (5, 5)     border RGB(75,75,75)
+            ├── __tabs   608 × 45    at (6, 8)     border RGB(75,75,75)
+            │   └── tab buttons  151 × 45  each, 1px gap, BorderSizePixel=0
+            └── __tabContent  608 × 314  at (6, 59) border RGB(75,75,75)
+                └── per-tab ScrollingFrame  608 × 314
+                    └── UIPadding 8px all sides → inner = 592 × 298
+                        └── column holder Frame  592 × auto
+                            ├── Left column   292 × auto  (sections stack here)
+                            └── Right column  292 × auto  (sections stack here)
+                                └── Section
+                                    ├── Header row  292 × 20
+                                    │   ├── TextLabel  "SECTION NAME"
+                                    │   └── separator  292 × 1  at y=19
+                                    └── Body Frame  292 × auto  (elements stack, 4px gap)
+                                        └── Toggle row  292 × 26
+                                            ├── Checkbox  14 × 14  at (0, 6)
+                                            └── Label     258 × 26 at (20, 0)
+
+    Column math:
+        inner width          = 592
+        gap between columns  = 8
+        each column          = (592 - 8) / 2 = 292  ✓
+
+    Section header height    = 20px
+    Separator                = 1px line at bottom of header
+    Element row height       = 26px
+    Element gap              = 4px
+    Checkbox size            = 14 × 14, centred in 26px row → y offset = (26-14)/2 = 6
+    Label x offset           = 14 + 6 = 20px
+
+    Menu toggle key          = configurable, default RightShift
+    ════════════════════════════════════════════════════════════════
 
     Usage:
         local UI = loadstring(...)()
-        local Window = UI:CreateWindow()
-        local Tab    = Window:AddTab("Main")
-        Tab:AddToggle("God Mode", false, function(state) print(state) end)
+
+        local Window = UI:CreateWindow({
+            key = Enum.KeyCode.RightShift,   -- optional, default RightShift
+        })
+
+        local Tab = Window:AddTab("Legit")
+
+        local Aimbot = Tab:AddSection("Aimbot", "left")
+        Aimbot:AddToggle("Enable", false, function(v) end)
+        Aimbot:AddToggle("Silent Aim", false, function(v) end)
+
+        local Visuals = Tab:AddSection("Visuals", "right")
+        Visuals:AddToggle("ESP", true, function(v) end)
 ]]
 
 local UILibrary = {}
@@ -15,44 +62,35 @@ UILibrary.__index = UILibrary
 -- ─────────────────────────────────────────────────────────────
 -- Services
 -- ─────────────────────────────────────────────────────────────
-local TweenService      = game:GetService("TweenService")
-local UserInputService  = game:GetService("UserInputService")
+local TweenService     = game:GetService("TweenService")
+local UserInputService = game:GetService("UserInputService")
 
 -- ─────────────────────────────────────────────────────────────
--- Theme  — every value pulled directly from the original dump
+-- Theme
 -- ─────────────────────────────────────────────────────────────
 local Theme = {
-    -- Frames
-    Frame1_BG       = Color3.fromRGB(29,  29,  29),   -- outer shadow frame
-    Frame2_BG       = Color3.fromRGB(16,  16,  16),   -- inner panel
-    Frame2_Bdr      = Color3.fromRGB(75,  75,  75),
-
-    -- Tab bar
-    TabBar_BG       = Color3.fromRGB(16,  16,  16),
-    TabBar_Bdr      = Color3.fromRGB(75,  75,  75),
-    TabInactive_BG  = Color3.fromRGB(30,  30,  30),
-    TabActive_BG    = Color3.fromRGB(125,  0,   4),
-
-    -- Content
-    Content_BG      = Color3.fromRGB(16,  16,  16),
-    Content_Bdr     = Color3.fromRGB(75,  75,  75),
-
-    -- Elements
-    Element_BG      = Color3.fromRGB(16,  16,  16),   -- same surface as content
-    Text            = Color3.fromRGB(255, 255, 255),
-    SubText         = Color3.fromRGB(180, 180, 180),
-
-    -- Checkbox (CSGO-style toggle)
-    Checkbox_BG     = Color3.fromRGB(30,  30,  30),   -- unchecked fill
-    Checkbox_Bdr    = Color3.fromRGB(75,  75,  75),   -- border colour
-    Checkbox_Check  = Color3.fromRGB(125,  0,   4),   -- checked fill (accent)
-
-    Font            = Enum.Font.Code,
-    FontSize        = 16,
+    Frame1_BG      = Color3.fromRGB(29,  29,  29),
+    Frame2_BG      = Color3.fromRGB(16,  16,  16),
+    Frame2_Bdr     = Color3.fromRGB(75,  75,  75),
+    TabBar_BG      = Color3.fromRGB(16,  16,  16),
+    TabBar_Bdr     = Color3.fromRGB(75,  75,  75),
+    TabInactive_BG = Color3.fromRGB(30,  30,  30),
+    TabActive_BG   = Color3.fromRGB(125,  0,   4),
+    Content_BG     = Color3.fromRGB(16,  16,  16),
+    Content_Bdr    = Color3.fromRGB(75,  75,  75),
+    Section_Bdr    = Color3.fromRGB(75,  75,  75),
+    Section_Header = Color3.fromRGB(180, 180, 180),
+    Text           = Color3.fromRGB(255, 255, 255),
+    Checkbox_BG    = Color3.fromRGB(30,  30,  30),
+    Checkbox_Bdr   = Color3.fromRGB(75,  75,  75),
+    Checkbox_Check = Color3.fromRGB(125,  0,   4),
+    Font           = Enum.Font.Nunito,
+    FontSize       = 16,
+    HeaderFontSize = 11,
 }
 
 -- ─────────────────────────────────────────────────────────────
--- Helpers
+-- Utility
 -- ─────────────────────────────────────────────────────────────
 local function Tween(obj, props, t)
     TweenService:Create(
@@ -108,29 +146,15 @@ end
 -- ─────────────────────────────────────────────────────────────
 -- Window
 -- ─────────────────────────────────────────────────────────────
---[[
-    Exact pixel reconstruction of original dump:
+function UILibrary:CreateWindow(cfg)
+    cfg = cfg or {}
+    local toggleKey = cfg.key or Enum.KeyCode.RightShift
 
-    ScreenGui (_index_)
-    └── _frame1          630 × 390   BorderSizePixel=0   [centered]
-        └── _frame2      620 × 380   at (5, 5)           BorderColor3=RGB(75,75,75)
-            ├── __tabs   608 × 45    at (6, 8)           BorderColor3=RGB(75,75,75)
-            │   ├── __tabInactive    151 × 45  BorderSizePixel=0
-            │   ├── __tabActive      151 × 45  BorderSizePixel=0
-            │   └── UIListLayout     Horizontal, Padding=1px
-            └── __tabContent  608 × 314  at (6, 59)      BorderColor3=RGB(75,75,75)
-                └── UIListLayout     Vertical
-
-    Tab bar bottom edge : 8 + 45      = 53
-    Content top edge    : 59          (6px gap between bar bottom and content top)
-    Content bottom edge : 59 + 314    = 373  (7px from frame2 bottom at 380)
-]]
-function UILibrary:CreateWindow()
     local CoreGui = game:GetService("CoreGui")
     local old = CoreGui:FindFirstChild("_index_")
     if old then old:Destroy() end
 
-    -- ── ScreenGui ──────────────────────────────────────
+    -- ── ScreenGui ─────────────────────────────────────────────
     local Gui = New("ScreenGui", {
         Name           = "_index_",
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -138,7 +162,7 @@ function UILibrary:CreateWindow()
         Parent         = CoreGui,
     })
 
-    -- ── _frame1  (outer, 630×390, no border, centered) ─
+    -- ── _frame1  630×390, centered, no border ─────────────────
     local Frame1 = New("Frame", {
         Name             = "_frame1",
         BackgroundColor3 = Theme.Frame1_BG,
@@ -149,7 +173,7 @@ function UILibrary:CreateWindow()
         Parent           = Gui,
     })
 
-    -- ── _frame2  (inner panel, 620×380 at offset 5,5) ──
+    -- ── _frame2  620×380 at (5,5) ─────────────────────────────
     local Frame2 = New("Frame", {
         Name             = "_frame2",
         BackgroundColor3 = Theme.Frame2_BG,
@@ -159,7 +183,8 @@ function UILibrary:CreateWindow()
         Parent           = Frame1,
     })
 
-    -- ── __tabs  (608×45 at 6,8 inside Frame2) ──────────
+    -- ── __tabs  608×45 at (6,8) ───────────────────────────────
+    --    bottom edge = 8+45 = 53
     local TabBar = New("Frame", {
         Name             = "__tabs",
         BackgroundColor3 = Theme.TabBar_BG,
@@ -169,15 +194,16 @@ function UILibrary:CreateWindow()
         Parent           = Frame2,
     })
 
-    local TabLayout = New("UIListLayout", {
+    New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         SortOrder     = Enum.SortOrder.LayoutOrder,
         Padding       = UDim.new(0, 1),
         Parent        = TabBar,
     })
 
-    -- ── __tabContent  (608×314 at 6,59 inside Frame2) ──
-    --    8+45+6 = 59  ✓
+    -- ── __tabContent  608×314 at (6,59) ──────────────────────
+    --    gap: 59 - 53 = 6px between tab bar bottom and content top  ✓
+    --    bottom edge: 59+314 = 373, frame2 height=380 → 7px bottom gap  ✓
     local ContentArea = New("Frame", {
         Name             = "__tabContent",
         BackgroundColor3 = Theme.Content_BG,
@@ -188,28 +214,41 @@ function UILibrary:CreateWindow()
         Parent           = Frame2,
     })
 
-    -- Drag entire window by holding tab bar
     MakeDraggable(TabBar, Frame1)
 
-    -- ─────────────────────────────────────────────────────
+    -- ── Menu toggle key ───────────────────────────────────────
+    UserInputService.InputBegan:Connect(function(inp, processed)
+        if not processed and inp.KeyCode == toggleKey then
+            Frame1.Visible = not Frame1.Visible
+        end
+    end)
+
+    -- ─────────────────────────────────────────────────────────
     -- Window object
-    -- ─────────────────────────────────────────────────────
+    -- ─────────────────────────────────────────────────────────
     local Window = {
         _gui         = Gui,
+        _frame       = Frame1,
         _tabBar      = TabBar,
         _contentArea = ContentArea,
         _tabs        = {},
         _activeTab   = nil,
     }
 
-    -- ── AddTab ────────────────────────────────────────────
+    function Window:SetVisible(v)
+        self._frame.Visible = v
+    end
+
+    function Window:Destroy()
+        self._gui:Destroy()
+    end
+
+    -- ── AddTab ────────────────────────────────────────────────
     function Window:AddTab(name)
         local index = #self._tabs + 1
 
-        --[[
-            Tab button: 151 × 45, BorderSizePixel = 0
-            4 tabs × 151 + 3 gaps × 1 = 607px — fits inside 608px bar
-        ]]
+        -- button: 151×45, no border
+        -- 4 buttons × 151 + 3 gaps × 1 = 607px ← fits 608px bar  ✓
         local Btn = New("TextButton", {
             Name             = "__tabInactive",
             Font             = Theme.Font,
@@ -226,9 +265,17 @@ function UILibrary:CreateWindow()
         })
 
         --[[
-            Content page: scrollable, fills ContentArea (608×314)
-            UIPadding: 8px on all sides → usable area = 592×298
-            Elements are stacked vertically with 4px gap
+            Per-tab ScrollingFrame: 608×314 (fills ContentArea exactly)
+            UIPadding 8px all sides → inner usable = 592×298
+
+            Inside: a horizontal holder frame that contains two column frames.
+                Holder:        592px wide, AutomaticSize Y
+                Left column:   292px wide, AutomaticSize Y
+                Right column:  292px wide, AutomaticSize Y
+                Gap:           8px  (592 - 292 - 292 = 8, split as 8px offset on right col)
+
+            Columns use UIListLayout (vertical) to stack sections.
+            Sections use UIListLayout (vertical) to stack elements.
         ]]
         local Page = New("ScrollingFrame", {
             BackgroundTransparency = 1,
@@ -243,13 +290,6 @@ function UILibrary:CreateWindow()
             Parent                 = self._contentArea,
         })
 
-        New("UIListLayout", {
-            SortOrder        = Enum.SortOrder.LayoutOrder,
-            Padding          = UDim.new(0, 4),
-            HorizontalAlignment = Enum.HorizontalAlignment.Left,
-            Parent           = Page,
-        })
-
         New("UIPadding", {
             PaddingTop    = UDim.new(0, 8),
             PaddingBottom = UDim.new(0, 8),
@@ -258,11 +298,56 @@ function UILibrary:CreateWindow()
             Parent        = Page,
         })
 
-        -- ── Tab object ───────────────────────────────────
+        -- Holder: 592px wide, grows vertically with content
+        -- Position (0,0) — padding above handles the 8px inset
+        local Holder = New("Frame", {
+            Name                = "ColumnHolder",
+            BackgroundTransparency = 1,
+            BorderSizePixel     = 0,
+            Size                = UDim2.new(1, 0, 0, 0),
+            AutomaticSize       = Enum.AutomaticSize.Y,
+            Parent              = Page,
+        })
+
+        -- Left column: 292px wide, grows with content, at x=0
+        local LeftCol = New("Frame", {
+            Name              = "LeftColumn",
+            BackgroundTransparency = 1,
+            BorderSizePixel   = 0,
+            Position          = UDim2.new(0, 0, 0, 0),
+            Size              = UDim2.new(0, 292, 0, 0),
+            AutomaticSize     = Enum.AutomaticSize.Y,
+            Parent            = Holder,
+        })
+        New("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding   = UDim.new(0, 10),  -- gap between sections within a column
+            Parent    = LeftCol,
+        })
+
+        -- Right column: 292px wide, at x = 292+8 = 300
+        local RightCol = New("Frame", {
+            Name              = "RightColumn",
+            BackgroundTransparency = 1,
+            BorderSizePixel   = 0,
+            Position          = UDim2.new(0, 300, 0, 0),
+            Size              = UDim2.new(0, 292, 0, 0),
+            AutomaticSize     = Enum.AutomaticSize.Y,
+            Parent            = Holder,
+        })
+        New("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding   = UDim.new(0, 10),
+            Parent    = RightCol,
+        })
+
+        -- ── Tab object ────────────────────────────────────────
         local Tab = {
-            _btn    = Btn,
-            _page   = Page,
-            _window = self,
+            _btn      = Btn,
+            _page     = Page,
+            _leftCol  = LeftCol,
+            _rightCol = RightCol,
+            _window   = self,
         }
 
         function Tab:Select()
@@ -291,94 +376,178 @@ function UILibrary:CreateWindow()
         table.insert(self._tabs, Tab)
         if #self._tabs == 1 then Tab:Select() end
 
-        -- ─────────────────────────────────────────────────
-        -- Elements
-        -- ─────────────────────────────────────────────────
-
+        -- ── AddSection ────────────────────────────────────────
         --[[
-            CSGO-style checkbox toggle
-            Layout (row height = 26px, full page width):
+            Section layout inside its column (292px wide):
 
-            ┌──┐  Label text
-            │  │
-            └──┘
-            ^14px square checkbox with 1px border
-            Label sits 6px to the right of the checkbox, vertically centred
+            ┌──────────────────────────────────────────┐  ← SectionFrame (292×auto)
+            │ SECTION NAME                             │  ← Header 292×20
+            ├──────────────────────────────────────────┤  ← 1px separator
+            │ ☐  Toggle label                          │  ← element row 26px
+            │ ☐  Toggle label                          │
+            └──────────────────────────────────────────┘
 
-            Checked   → checkbox filled with accent red (125,0,4)
-            Unchecked → checkbox filled with dark (30,30,30), border (75,75,75)
+            Header:
+                TextLabel  292×20, uppercase-ish small text RGB(180,180,180)
+                Separator  Frame 292×1 at y=19, RGB(75,75,75)
+
+            Body (elements):
+                UIListLayout vertical, 4px gap
+                UIPadding: top=6px (breathing room after separator)
+
+            Element row (toggle):
+                Height    = 26px
+                Width     = 292px (full section width)
+                Checkbox  = 14×14 at x=0, y=(26-14)/2=6  → centred vertically
+                Label     = x=20, y=0, w=272, h=26
         ]]
-        function Tab:AddToggle(label, default, callback)
-            default  = (default == true)
-            callback = callback or function() end
-            local state = default
+        function Tab:AddSection(sectionName, side)
+            side = (side == "right") and "right" or "left"
+            local parentCol = (side == "right") and self._rightCol or self._leftCol
+            local sectionIndex = #parentCol:GetChildren()
 
-            -- Row: full width, 26px tall
-            local Row = New("Frame", {
-                Name             = "Toggle_" .. label,
+            -- Outer section frame, 292px wide, grows with content
+            local SectionFrame = New("Frame", {
+                Name              = "Section_" .. sectionName,
+                BackgroundTransparency = 1,
+                BorderSizePixel   = 0,
+                Size              = UDim2.new(1, 0, 0, 0),
+                AutomaticSize     = Enum.AutomaticSize.Y,
+                LayoutOrder       = sectionIndex,
+                Parent            = parentCol,
+            })
+
+            -- Header: 292×20
+            local Header = New("Frame", {
+                Name             = "Header",
                 BackgroundTransparency = 1,
                 BorderSizePixel  = 0,
-                Size             = UDim2.new(1, 0, 0, 26),
-                LayoutOrder      = #Page:GetChildren(),
-                Parent           = Page,
+                Size             = UDim2.new(1, 0, 0, 20),
+                Parent           = SectionFrame,
             })
 
-            -- Checkbox: 14×14, vertically centred in the 26px row
-            local Box = New("TextButton", {
-                Name             = "Checkbox",
-                BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG,
-                BorderColor3     = Theme.Checkbox_Bdr,
-                Position         = UDim2.new(0, 0, 0.5, -7),
-                Size             = UDim2.new(0, 14, 0, 14),
-                Text             = "",
-                AutoButtonColor  = false,
-                Parent           = Row,
-            })
-
-            -- Label: starts 6px after the 14px box → x=20
             New("TextLabel", {
-                Name                  = "Label",
+                Name                  = "Title",
                 BackgroundTransparency = 1,
                 BorderSizePixel       = 0,
-                Position              = UDim2.new(0, 20, 0, 0),
-                Size                  = UDim2.new(1, -20, 1, 0),
+                Size                  = UDim2.new(1, 0, 1, 0),
                 Font                  = Theme.Font,
-                Text                  = label,
-                TextColor3            = Theme.Text,
-                TextSize              = Theme.FontSize,
+                Text                  = string.upper(sectionName),
+                TextColor3            = Theme.Section_Header,
+                TextSize              = Theme.HeaderFontSize,
                 TextXAlignment        = Enum.TextXAlignment.Left,
                 TextYAlignment        = Enum.TextYAlignment.Center,
-                Parent                = Row,
+                Parent                = Header,
             })
 
-            local function Apply(val, silent)
-                state = val
-                Tween(Box, {
-                    BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG
-                }, 0.1)
-                if not silent then callback(state) end
+            -- Separator: 1px line at y=19 (bottom of header), full width
+            New("Frame", {
+                Name             = "Separator",
+                BackgroundColor3 = Theme.Section_Bdr,
+                BorderSizePixel  = 0,
+                Position         = UDim2.new(0, 0, 0, 19),
+                Size             = UDim2.new(1, 0, 0, 1),
+                Parent           = Header,
+            })
+
+            -- Body: stacks elements, grows with content
+            --       top padding = 6px (space after separator)
+            local Body = New("Frame", {
+                Name              = "Body",
+                BackgroundTransparency = 1,
+                BorderSizePixel   = 0,
+                Position          = UDim2.new(0, 0, 0, 20),
+                Size              = UDim2.new(1, 0, 0, 0),
+                AutomaticSize     = Enum.AutomaticSize.Y,
+                Parent            = SectionFrame,
+            })
+
+            New("UIListLayout", {
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding   = UDim.new(0, 4),
+                Parent    = Body,
+            })
+
+            New("UIPadding", {
+                PaddingTop = UDim.new(0, 6),
+                Parent     = Body,
+            })
+
+            -- ── Section object ────────────────────────────────
+            local Section = { _body = Body }
+
+            --[[
+                AddToggle — CSGO checkbox
+
+                Row: 292×26  (full section width, 26px tall)
+                Checkbox: TextButton 14×14
+                    Position x=0, y=(26-14)/2=6
+                    BackgroundColor3: unchecked=RGB(30,30,30) checked=RGB(125,0,4)
+                    BorderColor3: RGB(75,75,75)
+                Label: TextLabel x=20, y=0, w=272, h=26
+            ]]
+            function Section:AddToggle(label, default, callback)
+                default  = (default == true)
+                callback = callback or function() end
+                local state = default
+
+                local Row = New("Frame", {
+                    Name                  = "Toggle_" .. label,
+                    BackgroundTransparency = 1,
+                    BorderSizePixel       = 0,
+                    Size                  = UDim2.new(1, 0, 0, 26),
+                    LayoutOrder           = #Body:GetChildren(),
+                    Parent                = Body,
+                })
+
+                -- Checkbox: 14×14, vertically centred: (26-14)/2 = 6px top offset
+                local Box = New("TextButton", {
+                    Name             = "Checkbox",
+                    BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG,
+                    BorderColor3     = Theme.Checkbox_Bdr,
+                    Position         = UDim2.new(0, 0, 0, 6),
+                    Size             = UDim2.new(0, 14, 0, 14),
+                    Text             = "",
+                    AutoButtonColor  = false,
+                    Parent           = Row,
+                })
+
+                -- Label: x=20 (14px box + 6px gap), full remaining width
+                New("TextLabel", {
+                    Name                  = "Label",
+                    BackgroundTransparency = 1,
+                    BorderSizePixel       = 0,
+                    Position              = UDim2.new(0, 20, 0, 0),
+                    Size                  = UDim2.new(1, -20, 1, 0),
+                    Font                  = Theme.Font,
+                    Text                  = label,
+                    TextColor3            = Theme.Text,
+                    TextSize              = Theme.FontSize,
+                    TextXAlignment        = Enum.TextXAlignment.Left,
+                    TextYAlignment        = Enum.TextYAlignment.Center,
+                    Parent                = Row,
+                })
+
+                local function Apply(val, silent)
+                    state = val
+                    Tween(Box, {
+                        BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG
+                    }, 0.1)
+                    if not silent then callback(state) end
+                end
+
+                Box.MouseButton1Click:Connect(function() Apply(not state) end)
+
+                return {
+                    Set = function(_, v) Apply(v, true) end,
+                    Get = function(_) return state end,
+                }
             end
 
-            Box.MouseButton1Click:Connect(function() Apply(not state) end)
-
-            -- Clicking label also toggles
-            Row.InputBegan:Connect(function(inp)
-                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
-                    Apply(not state)
-                end
-            end)
-
-            return {
-                Set = function(_, v) Apply(v, true) end,
-                Get = function(_) return state end,
-            }
+            return Section
         end
 
         return Tab
-    end
-
-    function Window:Destroy()
-        self._gui:Destroy()
     end
 
     return Window
