@@ -1,60 +1,72 @@
 --[[
-    UILibrary — Faithful to original design, pixel-perfect
-    No title bar. Draggable via tab bar.
+    UILibrary — CSGO-style, pixel-perfect, faithful to original dump
+    Draggable via tab bar. No title bar. No rounded corners anywhere.
 
     Usage:
         local UI = loadstring(...)()
         local Window = UI:CreateWindow()
-        local Tab = Window:AddTab("Main")
+        local Tab    = Window:AddTab("Main")
         Tab:AddToggle("God Mode", false, function(state) print(state) end)
 ]]
 
 local UILibrary = {}
 UILibrary.__index = UILibrary
 
--- ─────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────
 -- Services
--- ─────────────────────────────────────────
-local TweenService     = game:GetService("TweenService")
-local UserInputService = game:GetService("UserInputService")
+-- ─────────────────────────────────────────────────────────────
+local TweenService      = game:GetService("TweenService")
+local UserInputService  = game:GetService("UserInputService")
 
--- ─────────────────────────────────────────
--- Theme  (mirrors original RGB values exactly)
--- ─────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────
+-- Theme  — every value pulled directly from the original dump
+-- ─────────────────────────────────────────────────────────────
 local Theme = {
-    Frame1_BG    = Color3.fromRGB(29,  29,  29),
-    Frame2_BG    = Color3.fromRGB(16,  16,  16),
-    Frame2_Bdr   = Color3.fromRGB(75,  75,  75),
-    TabBar_BG    = Color3.fromRGB(16,  16,  16),
-    TabBar_Bdr   = Color3.fromRGB(75,  75,  75),
-    TabInactive  = Color3.fromRGB(30,  30,  30),
-    TabActive    = Color3.fromRGB(125,  0,   4),
-    Content_BG   = Color3.fromRGB(16,  16,  16),
-    Content_Bdr  = Color3.fromRGB(75,  75,  75),
-    Text         = Color3.fromRGB(255, 255, 255),
-    SubText      = Color3.fromRGB(160, 160, 160),
-    Element_BG   = Color3.fromRGB(22,  22,  22),
-    Toggle_On    = Color3.fromRGB(125,  0,   4),
-    Toggle_Off   = Color3.fromRGB(55,  55,  55),
-    Font         = Enum.Font.Code,
-    FontSize     = 16,
+    -- Frames
+    Frame1_BG       = Color3.fromRGB(29,  29,  29),   -- outer shadow frame
+    Frame2_BG       = Color3.fromRGB(16,  16,  16),   -- inner panel
+    Frame2_Bdr      = Color3.fromRGB(75,  75,  75),
+
+    -- Tab bar
+    TabBar_BG       = Color3.fromRGB(16,  16,  16),
+    TabBar_Bdr      = Color3.fromRGB(75,  75,  75),
+    TabInactive_BG  = Color3.fromRGB(30,  30,  30),
+    TabActive_BG    = Color3.fromRGB(125,  0,   4),
+
+    -- Content
+    Content_BG      = Color3.fromRGB(16,  16,  16),
+    Content_Bdr     = Color3.fromRGB(75,  75,  75),
+
+    -- Elements
+    Element_BG      = Color3.fromRGB(16,  16,  16),   -- same surface as content
+    Text            = Color3.fromRGB(255, 255, 255),
+    SubText         = Color3.fromRGB(180, 180, 180),
+
+    -- Checkbox (CSGO-style toggle)
+    Checkbox_BG     = Color3.fromRGB(30,  30,  30),   -- unchecked fill
+    Checkbox_Bdr    = Color3.fromRGB(75,  75,  75),   -- border colour
+    Checkbox_Check  = Color3.fromRGB(125,  0,   4),   -- checked fill (accent)
+
+    Font            = Enum.Font.Code,
+    FontSize        = 16,
 }
 
--- ─────────────────────────────────────────
--- Utility
--- ─────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────
+-- Helpers
+-- ─────────────────────────────────────────────────────────────
 local function Tween(obj, props, t)
     TweenService:Create(
         obj,
-        TweenInfo.new(t or 0.15, Enum.EasingStyle.Quad, Enum.EasingDirection.Out),
+        TweenInfo.new(t or 0.12, Enum.EasingStyle.Linear),
         props
     ):Play()
 end
 
-local function New(class, props, children)
+local function New(class, props)
     local o = Instance.new(class)
-    for k, v in pairs(props or {}) do o[k] = v end
-    for _, c in ipairs(children or {}) do c.Parent = o end
+    for k, v in pairs(props or {}) do
+        o[k] = v
+    end
     return o
 end
 
@@ -63,7 +75,7 @@ local function MakeDraggable(handle, target)
 
     handle.InputBegan:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
-            or inp.UserInputType == Enum.UserInputType.Touch then
+        or inp.UserInputType == Enum.UserInputType.Touch then
             dragging   = true
             startMouse = inp.Position
             startPos   = target.Position
@@ -77,7 +89,7 @@ local function MakeDraggable(handle, target)
 
     handle.InputChanged:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseMovement
-            or inp.UserInputType == Enum.UserInputType.Touch then
+        or inp.UserInputType == Enum.UserInputType.Touch then
             dragInput = inp
         end
     end)
@@ -93,34 +105,40 @@ local function MakeDraggable(handle, target)
     end)
 end
 
--- ─────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────
 -- Window
--- ─────────────────────────────────────────
+-- ─────────────────────────────────────────────────────────────
+--[[
+    Exact pixel reconstruction of original dump:
+
+    ScreenGui (_index_)
+    └── _frame1          630 × 390   BorderSizePixel=0   [centered]
+        └── _frame2      620 × 380   at (5, 5)           BorderColor3=RGB(75,75,75)
+            ├── __tabs   608 × 45    at (6, 8)           BorderColor3=RGB(75,75,75)
+            │   ├── __tabInactive    151 × 45  BorderSizePixel=0
+            │   ├── __tabActive      151 × 45  BorderSizePixel=0
+            │   └── UIListLayout     Horizontal, Padding=1px
+            └── __tabContent  608 × 314  at (6, 59)      BorderColor3=RGB(75,75,75)
+                └── UIListLayout     Vertical
+
+    Tab bar bottom edge : 8 + 45      = 53
+    Content top edge    : 59          (6px gap between bar bottom and content top)
+    Content bottom edge : 59 + 314    = 373  (7px from frame2 bottom at 380)
+]]
 function UILibrary:CreateWindow()
-    local cg  = game:GetService("CoreGui")
-    local old = cg:FindFirstChild("_index_")
+    local CoreGui = game:GetService("CoreGui")
+    local old = CoreGui:FindFirstChild("_index_")
     if old then old:Destroy() end
 
-    --[[
-        Pixel layout (exact to original dump):
-
-        _frame1      630 × 390   centered on screen via AnchorPoint
-        └── _frame2  620 × 380   at pixel offset (5, 5)
-            ├── __tabs        608 × 45   at (6, 7)
-            └── __tabContent  608 × 314  at (6, 59)
-
-        Tabs bar bottom  = 7 + 45 = 52
-        Content top      = 59    → 7px breathing room between bar & content
-        Content bottom   = 59 + 314 = 373 → 7px from frame2 bottom (380)
-    ]]
-
+    -- ── ScreenGui ──────────────────────────────────────
     local Gui = New("ScreenGui", {
         Name           = "_index_",
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
         ResetOnSpawn   = false,
-        Parent         = cg,
+        Parent         = CoreGui,
     })
 
+    -- ── _frame1  (outer, 630×390, no border, centered) ─
     local Frame1 = New("Frame", {
         Name             = "_frame1",
         BackgroundColor3 = Theme.Frame1_BG,
@@ -131,6 +149,7 @@ function UILibrary:CreateWindow()
         Parent           = Gui,
     })
 
+    -- ── _frame2  (inner panel, 620×380 at offset 5,5) ──
     local Frame2 = New("Frame", {
         Name             = "_frame2",
         BackgroundColor3 = Theme.Frame2_BG,
@@ -140,24 +159,25 @@ function UILibrary:CreateWindow()
         Parent           = Frame1,
     })
 
-    -- Tab bar: 608 × 45, offset (6, 7) inside Frame2
+    -- ── __tabs  (608×45 at 6,8 inside Frame2) ──────────
     local TabBar = New("Frame", {
         Name             = "__tabs",
         BackgroundColor3 = Theme.TabBar_BG,
         BorderColor3     = Theme.TabBar_Bdr,
-        Position         = UDim2.new(0, 6, 0, 7),
+        Position         = UDim2.new(0, 6, 0, 8),
         Size             = UDim2.new(0, 608, 0, 45),
         Parent           = Frame2,
     })
 
-    New("UIListLayout", {
+    local TabLayout = New("UIListLayout", {
         FillDirection = Enum.FillDirection.Horizontal,
         SortOrder     = Enum.SortOrder.LayoutOrder,
         Padding       = UDim.new(0, 1),
         Parent        = TabBar,
     })
 
-    -- Content area: 608 × 314, offset (6, 59) inside Frame2
+    -- ── __tabContent  (608×314 at 6,59 inside Frame2) ──
+    --    8+45+6 = 59  ✓
     local ContentArea = New("Frame", {
         Name             = "__tabContent",
         BackgroundColor3 = Theme.Content_BG,
@@ -168,12 +188,12 @@ function UILibrary:CreateWindow()
         Parent           = Frame2,
     })
 
-    -- Drag the whole window by grabbing the tab bar
+    -- Drag entire window by holding tab bar
     MakeDraggable(TabBar, Frame1)
 
-    -- ─────────────────────────────────────────
+    -- ─────────────────────────────────────────────────────
     -- Window object
-    -- ─────────────────────────────────────────
+    -- ─────────────────────────────────────────────────────
     local Window = {
         _gui         = Gui,
         _tabBar      = TabBar,
@@ -182,11 +202,14 @@ function UILibrary:CreateWindow()
         _activeTab   = nil,
     }
 
+    -- ── AddTab ────────────────────────────────────────────
     function Window:AddTab(name)
         local index = #self._tabs + 1
 
-        -- Tab button: 151 × 45
-        -- Four tabs × 151px + three 1px gaps = 607px (fits 608px bar)
+        --[[
+            Tab button: 151 × 45, BorderSizePixel = 0
+            4 tabs × 151 + 3 gaps × 1 = 607px — fits inside 608px bar
+        ]]
         local Btn = New("TextButton", {
             Name             = "__tabInactive",
             Font             = Theme.Font,
@@ -194,7 +217,7 @@ function UILibrary:CreateWindow()
             TextColor3       = Theme.Text,
             TextSize         = Theme.FontSize,
             TextWrapped      = true,
-            BackgroundColor3 = Theme.TabInactive,
+            BackgroundColor3 = Theme.TabInactive_BG,
             BorderSizePixel  = 0,
             Size             = UDim2.new(0, 151, 0, 45),
             LayoutOrder      = index,
@@ -202,33 +225,40 @@ function UILibrary:CreateWindow()
             Parent           = self._tabBar,
         })
 
-        -- Scrollable content page, fills ContentArea
+        --[[
+            Content page: scrollable, fills ContentArea (608×314)
+            UIPadding: 8px on all sides → usable area = 592×298
+            Elements are stacked vertically with 4px gap
+        ]]
         local Page = New("ScrollingFrame", {
             BackgroundTransparency = 1,
             BorderSizePixel        = 0,
             Size                   = UDim2.new(1, 0, 1, 0),
             CanvasSize             = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize    = Enum.AutomaticSize.Y,
-            ScrollBarThickness     = 3,
-            ScrollBarImageColor3   = Theme.TabActive,
+            ScrollBarThickness     = 2,
+            ScrollBarImageColor3   = Theme.TabActive_BG,
+            ScrollingDirection     = Enum.ScrollingDirection.Y,
             Visible                = false,
             Parent                 = self._contentArea,
         })
 
         New("UIListLayout", {
-            SortOrder = Enum.SortOrder.LayoutOrder,
-            Padding   = UDim.new(0, 6),
-            Parent    = Page,
+            SortOrder        = Enum.SortOrder.LayoutOrder,
+            Padding          = UDim.new(0, 4),
+            HorizontalAlignment = Enum.HorizontalAlignment.Left,
+            Parent           = Page,
         })
 
         New("UIPadding", {
-            PaddingTop    = UDim.new(0, 10),
-            PaddingBottom = UDim.new(0, 10),
-            PaddingLeft   = UDim.new(0, 10),
-            PaddingRight  = UDim.new(0, 10),
+            PaddingTop    = UDim.new(0, 8),
+            PaddingBottom = UDim.new(0, 8),
+            PaddingLeft   = UDim.new(0, 8),
+            PaddingRight  = UDim.new(0, 8),
             Parent        = Page,
         })
 
+        -- ── Tab object ───────────────────────────────────
         local Tab = {
             _btn    = Btn,
             _page   = Page,
@@ -238,10 +268,10 @@ function UILibrary:CreateWindow()
         function Tab:Select()
             for _, t in ipairs(self._window._tabs) do
                 t._page.Visible = false
-                Tween(t._btn, { BackgroundColor3 = Theme.TabInactive }, 0.12)
+                Tween(t._btn, { BackgroundColor3 = Theme.TabInactive_BG }, 0.1)
             end
             self._page.Visible = true
-            Tween(self._btn, { BackgroundColor3 = Theme.TabActive }, 0.12)
+            Tween(self._btn, { BackgroundColor3 = Theme.TabActive_BG }, 0.1)
             self._window._activeTab = self
         end
 
@@ -249,92 +279,94 @@ function UILibrary:CreateWindow()
 
         Btn.MouseEnter:Connect(function()
             if self._activeTab ~= Tab then
-                Tween(Btn, { BackgroundColor3 = Color3.fromRGB(45, 45, 45) }, 0.1)
+                Tween(Btn, { BackgroundColor3 = Color3.fromRGB(45, 45, 45) }, 0.08)
             end
         end)
         Btn.MouseLeave:Connect(function()
             if self._activeTab ~= Tab then
-                Tween(Btn, { BackgroundColor3 = Theme.TabInactive }, 0.1)
+                Tween(Btn, { BackgroundColor3 = Theme.TabInactive_BG }, 0.08)
             end
         end)
 
         table.insert(self._tabs, Tab)
         if #self._tabs == 1 then Tab:Select() end
 
-        -- ─────────────────────────────────────
+        -- ─────────────────────────────────────────────────
         -- Elements
-        -- ─────────────────────────────────────
+        -- ─────────────────────────────────────────────────
 
         --[[
-            Toggle row (full width of Page minus padding = 588px, height 42px):
-            ┌─────────────────────────────────────────┐
-            │  Label text            [track ●]        │
-            └─────────────────────────────────────────┘
+            CSGO-style checkbox toggle
+            Layout (row height = 26px, full page width):
+
+            ┌──┐  Label text
+            │  │
+            └──┘
+            ^14px square checkbox with 1px border
+            Label sits 6px to the right of the checkbox, vertically centred
+
+            Checked   → checkbox filled with accent red (125,0,4)
+            Unchecked → checkbox filled with dark (30,30,30), border (75,75,75)
         ]]
         function Tab:AddToggle(label, default, callback)
             default  = (default == true)
             callback = callback or function() end
             local state = default
 
+            -- Row: full width, 26px tall
             local Row = New("Frame", {
                 Name             = "Toggle_" .. label,
-                BackgroundColor3 = Theme.Element_BG,
+                BackgroundTransparency = 1,
                 BorderSizePixel  = 0,
-                Size             = UDim2.new(1, 0, 0, 42),
+                Size             = UDim2.new(1, 0, 0, 26),
                 LayoutOrder      = #Page:GetChildren(),
                 Parent           = Page,
             })
 
-
-            New("TextLabel", {
-                BackgroundTransparency = 1,
-                Position       = UDim2.new(0, 12, 0, 0),
-                Size           = UDim2.new(1, -68, 1, 0),
-                Font           = Theme.Font,
-                Text           = label,
-                TextColor3     = Theme.Text,
-                TextSize       = Theme.FontSize,
-                TextXAlignment = Enum.TextXAlignment.Left,
-                Parent         = Row,
-            })
-
-            local Track = New("TextButton", {
-                BackgroundColor3 = state and Theme.Toggle_On or Theme.Toggle_Off,
-                BorderSizePixel  = 0,
-                AnchorPoint      = Vector2.new(1, 0.5),
-                Position         = UDim2.new(1, -12, 0.5, 0),
-                Size             = UDim2.new(0, 44, 0, 24),
+            -- Checkbox: 14×14, vertically centred in the 26px row
+            local Box = New("TextButton", {
+                Name             = "Checkbox",
+                BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG,
+                BorderColor3     = Theme.Checkbox_Bdr,
+                Position         = UDim2.new(0, 0, 0.5, -7),
+                Size             = UDim2.new(0, 14, 0, 14),
                 Text             = "",
                 AutoButtonColor  = false,
                 Parent           = Row,
             })
 
-
-            local Knob = New("Frame", {
-                BackgroundColor3 = Color3.fromRGB(255, 255, 255),
-                AnchorPoint      = Vector2.new(0, 0.5),
-                Position         = state
-                    and UDim2.new(1, -22, 0.5, 0)
-                    or  UDim2.new(0,   2, 0.5, 0),
-                Size             = UDim2.new(0, 20, 0, 20),
-                Parent           = Track,
+            -- Label: starts 6px after the 14px box → x=20
+            New("TextLabel", {
+                Name                  = "Label",
+                BackgroundTransparency = 1,
+                BorderSizePixel       = 0,
+                Position              = UDim2.new(0, 20, 0, 0),
+                Size                  = UDim2.new(1, -20, 1, 0),
+                Font                  = Theme.Font,
+                Text                  = label,
+                TextColor3            = Theme.Text,
+                TextSize              = Theme.FontSize,
+                TextXAlignment        = Enum.TextXAlignment.Left,
+                TextYAlignment        = Enum.TextYAlignment.Center,
+                Parent                = Row,
             })
-
 
             local function Apply(val, silent)
                 state = val
-                Tween(Track, {
-                    BackgroundColor3 = state and Theme.Toggle_On or Theme.Toggle_Off
-                }, 0.15)
-                Tween(Knob, {
-                    Position = state
-                        and UDim2.new(1, -22, 0.5, 0)
-                        or  UDim2.new(0,   2, 0.5, 0)
-                }, 0.15)
+                Tween(Box, {
+                    BackgroundColor3 = state and Theme.Checkbox_Check or Theme.Checkbox_BG
+                }, 0.1)
                 if not silent then callback(state) end
             end
 
-            Track.MouseButton1Click:Connect(function() Apply(not state) end)
+            Box.MouseButton1Click:Connect(function() Apply(not state) end)
+
+            -- Clicking label also toggles
+            Row.InputBegan:Connect(function(inp)
+                if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                    Apply(not state)
+                end
+            end)
 
             return {
                 Set = function(_, v) Apply(v, true) end,
