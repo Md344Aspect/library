@@ -36,7 +36,7 @@ local Theme = {
     Element_BG   = Color3.fromRGB(22,  22,  22),
     Toggle_On    = Color3.fromRGB(125,  0,   4),
     Toggle_Off   = Color3.fromRGB(55,  55,  55),
-    Font         = Enum.Font.Nunito,
+    Font         = Enum.Font.Code,
     FontSize     = 16,
 }
 
@@ -284,7 +284,7 @@ function UILibrary:CreateWindow()
                 LayoutOrder      = #Page:GetChildren(),
                 Parent           = Page,
             })
-            New("UICorner", { CornerRadius = UDim.new(0, 5), Parent = Row })
+
 
             New("TextLabel", {
                 BackgroundTransparency = 1,
@@ -308,7 +308,7 @@ function UILibrary:CreateWindow()
                 AutoButtonColor  = false,
                 Parent           = Row,
             })
-            New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Track })
+
 
             local Knob = New("Frame", {
                 BackgroundColor3 = Color3.fromRGB(255, 255, 255),
@@ -319,7 +319,7 @@ function UILibrary:CreateWindow()
                 Size             = UDim2.new(0, 20, 0, 20),
                 Parent           = Track,
             })
-            New("UICorner", { CornerRadius = UDim.new(1, 0), Parent = Knob })
+
 
             local function Apply(val, silent)
                 state = val
