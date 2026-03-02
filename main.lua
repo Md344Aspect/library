@@ -1,89 +1,119 @@
 --[[
-    UILibrary — CSGO-style  |  Font.Code  |  Colorways  |  Animations
+    UILibrary — CSGO-style  |  Font.Code  |  Colorways  |  No animations
     ═══════════════════════════════════════════════════════════════════════
 
-    COLORWAYS  (set via cfg.theme in CreateWindow)
-    ───────────────────────────────────────────────
-      "red"    → RGB(125, 0,   4)   default, classic CSGO cheat red
-      "blue"   → RGB(0,   100, 200) ESEA/Faceit blue
-      "green"  → RGB(30,  140, 60)  subtle green
-      "purple" → RGB(100, 0,  160)  purple
+    COLORWAYS  (cfg.theme = "red"|"blue"|"green"|"purple")
+    ───────────────────────────────────────────────────────
+      "red"    → RGB(125, 0,   4)   default
+      "blue"   → RGB(0,   100, 200)
+      "green"  → RGB(30,  140, 60)
+      "purple" → RGB(100, 0,   160)
 
-      Only the accent colour changes. All darks/borders stay identical.
-      Accent drives: TabActive_BG, Checkbox_On, Dropdown_Sel,
-                     Notif.error, section separator on hover.
-
-    ANIMATIONS
-    ──────────
-      Window open   : Size (0,0)→(630,390)  Back.Out  0.35s  bouncy open
-      Tab switch    : active btn Size pulse +3px then back  Back.Out  0.12s
-      Checkbox      : Box Size punch 14→11→14  two tweens  Quad.Out  0.08s each
-      Dropdown open : List Size 0→listHeight  Back.Out  0.25s  ClipsDescendants
-      Dropdown close: List Size listHeight→0  Quad.Out  0.15s  then Visible=false
-      Notif slide-in: Card x=310→0  Back.Out  0.3s  bouncy land
-      Notif slide-out: Card x=0→310  Quad.Out  0.2s  clean exit
-      Hover (tabs)  : BG colour  Quad.Out  0.08s  (unchanged, already smooth)
-      Hover (items) : BG colour  Quad.Out  0.08s  (unchanged)
-
-    LAYOUT TREE  (unchanged, pixel-perfect against original dump)
-    ═════════════════════════════════════════════════════════════
+    LAYOUT  (pixel-perfect, all values in absolute px)
+    ═══════════════════════════════════════════════════
     ScreenGui (_index_)
-    └── _frame1  630×390  BorderSizePixel=0  AnchorPoint(0.5,0.5)  centered
-        └── _frame2  620×380  pos=(5,5)  Border RGB(75,75,75)  inner=618×378
-            ├── __tabs  608×45  pos=(6,8)  Border RGB(75,75,75)  outer bottom=53
-            │   tab buttons 151×45 each  BorderSizePixel=0  Font=Code  FontSize=14  Center
-            └── __tabContent  608×314  pos=(6,59)  Border RGB(75,75,75)  inner=606×312
-                gap=6px  bottom gap=5px
-                ScrollingFrame Size(1,0,1,0)  pad=8px  usable=590×296  ScrollBar=2px
-                ColumnHolder 590×auto
-                  LeftColumn  291×auto  x=0    UIListLayout Padding=10px
-                  RightColumn 291×auto  x=299  UIListLayout Padding=10px  edge=590✓
+    └── _frame1   630×390   BorderSizePixel=0   AnchorPoint(0.5,0.5)
+        │         BG RGB(29,29,29)   draggable
+        └── _frame2   620×380   pos=(5,5)   Border RGB(75,75,75) 1px
+            │         BG RGB(16,16,16)   draggable
+            ├── __tabs   608×45   pos=(6,8)   Border RGB(75,75,75) 1px
+            │   │         BG RGB(16,16,16)   draggable
+            │   │         UIListLayout Horizontal Padding=1px
+            │   └── [tab buttons]   151×45 each   BorderSizePixel=0
+            │             Font=Code FontSize=14   TextXAlignment=Center
+            │             4×151 + 3×1 = 607px fits 608px bar ✓
+            └── __tabContent   608×314   pos=(6,59)
+                │         Border RGB(75,75,75) 1px   BG RGB(16,16,16)
+                │         ClipsDescendants=true
+                │         gap from tab bar: 59 - (8+45) = 6px ✓
+                │         bottom: 59+314=373, frame2 inner 378, gap=5px ✓
+                └── [per-tab ScrollingFrame]   Size(1,0,1,0)
+                    │     BG transparent   BorderSizePixel=0
+                    │     UIPadding: 8px all sides → usable 590×296
+                    │     ScrollBarThickness=2   ScrollingDirection=Y
+                    └── ColumnHolder   Size(1,0,0,0)   AutomaticSize=Y
+                        │             BG transparent
+                        ├── LeftColumn    291×auto   pos x=0
+                        │   UIListLayout vertical Padding=10px
+                        └── RightColumn   291×auto   pos x=299
+                            UIListLayout vertical Padding=10px
+                            right edge = 299+291 = 590 ✓
 
-    SECTION  291px wide
-    ────────────────────
-      SectionFrame 291×auto AutomaticSize=Y
-      Header 291×20  BG transparent
-        Title TextLabel full width  Font=Code FontSize=11  Left/Center  RGB(180,180,180)
-        Sep   Frame 291×1  y=19  BG RGB(75,75,75)  BorderSizePixel=0
-      Body 291×auto  pos y=21  UIListLayout Padding=4px  UIPadding PaddingTop=5px
+    COLUMN MATH
+    ───────────
+      scrollframe inner w = 606 - 16(pad) = 590px
+      gap between cols    = 8px
+      each col            = (590-8)/2 = 291px ✓
+      right col x         = 291+8 = 299px ✓
 
-    TOGGLE  291×26
-    ──────────────
-      Row 291×26 transparent
-      Box 14×14  x=0  y=6  Border RGB(75,75,75)  BG RGB(30,30,30)↔accent
-      Lbl x=20  w=271  h=26  Font=Code FontSize=14  Left/Center
+    SECTION  (291px wide)
+    ──────────────────────
+      SectionFrame   291×auto   AutomaticSize=Y   BG transparent
+      Header         291×20     BG transparent
+        Title        TextLabel  full size  Font=Code FontSize=11
+                     TextXAlignment=Left  TextYAlignment=Center
+                     Text=UPPER  Color=RGB(180,180,180)
+        Separator    Frame 291×1  pos y=19  BG RGB(75,75,75)
+      Body           291×auto   pos y=21   AutomaticSize=Y   BG transparent
+                     UIListLayout vertical Padding=4px
+                     UIPadding PaddingTop=5px
 
-    DROPDOWN  291×auto
-    ──────────────────
-      Wrapper 291×auto AutomaticSize=Y transparent ClipsDescendants=true
-      DHeader 291×26  BG RGB(30,30,30)  Border RGB(75,75,75)
-        SelLabel x=6  Size(1,-26,1,0)  Font=Code FontSize=14  Left/Center
-        Arrow    x=(1,-20)  w=20  h=full  "v"/"^"  Font=Code FontSize=12  Center
-      List 291×0→(22×n)  pos y=27  BG RGB(22,22,22)  Border RGB(75,75,75)
-        Each item 291×22  BG RGB(22,22,22)  hover→RGB(38,38,38)
-          ItemLbl full size  Font=Code FontSize=14  Left/Center  PaddingLeft=6px
-                  white normal  accent if selected
+    TOGGLE  (291×26)
+    ─────────────────
+      Row   291×26   BG transparent
+      Box   14×14    pos x=4  y=6   ← 4px left margin keeps it off the edge
+                     Border RGB(75,75,75)   BG RGB(30,30,30) or accent
+      Label pos x=24  Size(1,-24,1,0)   Font=Code FontSize=14
+            TextXAlignment=Left  TextYAlignment=Center
 
-    NOTIFICATION  300×60  bottom-right  DisplayOrder=10
-    ─────────────────────────────────────────────────────
-      Wrapper 300×60  ClipsDescendants  Card inside
-      Card BG RGB(16,16,16)  Border RGB(75,75,75)
-        Accent bar 4×60  x=0  BG=type colour
-        Title  x=12 y=8  h=18  FontSize=13  Left/Center
-        Message x=12 y=28  h=24  FontSize=11  Left/Top  Wrapped
-        Timer  x=0 y=58  h=2  BG=type colour  drains over duration
+    DROPDOWN  (291×auto, NO AutomaticSize — fixed height switching)
+    ─────────────────────────────────────────────────────────────────
+      Row         291×26 closed,  291×(26+1+n×22) open
+                  BG transparent   height set manually via Row.Size
+      DHeader     291×26   BG RGB(30,30,30)   Border RGB(75,75,75) 1px
+        SelLabel  pos x=6  Size(1,-26,1,0)   Font=Code FontSize=14
+                  Left/Center   TextTruncate=AtEnd
+        Arrow     pos x=(1,-20)  Size(0,20,1,0)   Text "v"/"^"
+                  Font=Code FontSize=12   Center   BG transparent
+      List        291×(n×22)   pos y=27   BG RGB(22,22,22)
+                  Border RGB(75,75,75) 1px   Visible=false when closed
+                  ClipsDescendants=false  (no animation clipping needed)
+        Each item   Frame 291×22   BG RGB(22,22,22)   pos y=(i-1)*22
+          ItemBtn   TextButton full size   Font=Code FontSize=14
+                    Left/Center   PaddingLeft=6px   AutoButtonColor=false
+                    Color=white normal, accent if selected
+
+    KEY FIX: Row has a FIXED size (not AutomaticSize). When closed, Row.Size.Y=26.
+    When open, Row.Size.Y = 26+1+n×22. List Visible toggles. No tween needed.
+    This avoids the gap bug caused by AutomaticSize seeing a zero-height but
+    still-present List frame keeping layout space.
+
+    DRAGGING
+    ────────
+      MakeDraggable called on: TabBar → Frame1, Frame2 → Frame1, Frame1 → Frame1
+      All three drag handles move Frame1 (the root). Frame1 has AnchorPoint(0.5,0.5)
+      so Position starts at scale(0.5,0.5). After first drag it becomes offset-based.
+      Works correctly because we preserve the current Position as startPos.
+
+    NOTIFICATION  (300×60, bottom-right, DisplayOrder=10)
+    ──────────────────────────────────────────────────────
+      Wrapper 300×60  ClipsDescendants
+      Card    BG RGB(16,16,16)  Border RGB(75,75,75)
+              pos x=310 → 0  (instant, no tween)
+        Accent bar  4×60  BG=type colour
+        Title       x=12 y=8  h=18  FontSize=13  Left/Center
+        Message     x=12 y=28  h=24  FontSize=11  Left/Top  Wrapped
+        Timer bar   x=0 y=58  h=2  BG=type colour  shrinks over duration (Linear tween only)
 
     USAGE
     ─────
       local UI  = loadstring(...)()
-      local Win = UI:CreateWindow({ key = Enum.KeyCode.RightShift, theme = "blue" })
-
+      local Win = UI:CreateWindow({ key=Enum.KeyCode.RightShift, theme="blue" })
       local Tab  = Win:AddTab("Legit")
-      local Sect = Tab:AddSection("Aimbot", "left")
+      local Sect = Tab:AddSection("Aimbot","left")
       Sect:AddToggle("Enable", false, function(v) end)
-      Sect:AddDropdown("Bone", {"Head","Neck","Chest"}, "Head", function(v) end)
-
-      UI:Notify("Loaded", "Library ready", "success", 3)
+      Sect:AddDropdown("Bone",{"Head","Neck","Chest"},"Head",function(v) end)
+      UI:Notify("Loaded","Ready","success",3)
 ]]
 
 local UILibrary = {}
@@ -96,7 +126,7 @@ local TweenService     = game:GetService("TweenService")
 local UserInputService = game:GetService("UserInputService")
 
 -- ─────────────────────────────────────────────────────────────
--- Colorway presets
+-- Colorways
 -- ─────────────────────────────────────────────────────────────
 local Colorways = {
     red    = Color3.fromRGB(125, 0,   4),
@@ -106,7 +136,7 @@ local Colorways = {
 }
 
 -- ─────────────────────────────────────────────────────────────
--- Base theme  (accent injected at CreateWindow time)
+-- Theme builder
 -- ─────────────────────────────────────────────────────────────
 local function BuildTheme(accent)
     return {
@@ -128,35 +158,19 @@ local function BuildTheme(accent)
         Checkbox_On    = accent,
         Dropdown_BG    = Color3.fromRGB(30,  30,  30),
         Dropdown_List  = Color3.fromRGB(22,  22,  22),
-        Dropdown_Hover = Color3.fromRGB(38,  38,  38),
+        Dropdown_Hover = Color3.fromRGB(40,  40,  40),
         Dropdown_Sel   = accent,
         Accent         = accent,
         Font           = Enum.Font.Code,
         FontSize       = 14,
-        HeaderFontSize = 11,
+        HdrSize        = 11,
         Notif = {
             info    = Color3.fromRGB(75,  75,  75),
             success = Color3.fromRGB(30,  140, 60),
             warning = Color3.fromRGB(200, 150, 0),
-            error   = Color3.fromRGB(125, 0,   4),  -- always red regardless of theme
+            error   = Color3.fromRGB(125, 0,   4),
         },
     }
-end
-
--- ─────────────────────────────────────────────────────────────
--- TweenInfo presets
--- ─────────────────────────────────────────────────────────────
-local TI = {
-    -- Bouncy: Back.Out — overshoot then settle. Used for opens, window spawn.
-    Bounce   = function(t) return TweenInfo.new(t, Enum.EasingStyle.Back,  Enum.EasingDirection.Out) end,
-    -- Smooth: Quad.Out — fast start, decelerates. Used for closes, hovers, colour shifts.
-    Smooth   = function(t) return TweenInfo.new(t, Enum.EasingStyle.Quad,  Enum.EasingDirection.Out) end,
-    -- Crisp: Linear — constant speed. Used for timer bar, slide-out exits.
-    Linear   = function(t) return TweenInfo.new(t, Enum.EasingStyle.Linear) end,
-}
-
-local function Tween(obj, ti, props)
-    TweenService:Create(obj, ti, props):Play()
 end
 
 -- ─────────────────────────────────────────────────────────────
@@ -168,8 +182,27 @@ local function New(class, props)
     return o
 end
 
+-- Only tween used: Linear for the notification timer bar drain.
+-- Everything else is instant (no animation).
+local function DrainTween(obj, duration)
+    TweenService:Create(
+        obj,
+        TweenInfo.new(duration, Enum.EasingStyle.Linear),
+        { Size = UDim2.new(0, 0, 0, 2) }
+    ):Play()
+end
+
+-- ─────────────────────────────────────────────────────────────
+-- MakeDraggable
+-- Attaches drag behaviour: clicking handle moves target.
+-- Works with AnchorPoint(0.5,0.5) since we store startPos each drag.
+-- ─────────────────────────────────────────────────────────────
 local function MakeDraggable(handle, target)
-    local dragging, dragInput, startMouse, startPos
+    local dragging   = false
+    local dragInput  = nil
+    local startMouse = nil
+    local startPos   = nil
+
     handle.InputBegan:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseButton1
         or inp.UserInputType == Enum.UserInputType.Touch then
@@ -183,25 +216,29 @@ local function MakeDraggable(handle, target)
             end)
         end
     end)
+
     handle.InputChanged:Connect(function(inp)
         if inp.UserInputType == Enum.UserInputType.MouseMovement
         or inp.UserInputType == Enum.UserInputType.Touch then
             dragInput = inp
         end
     end)
+
     UserInputService.InputChanged:Connect(function(inp)
         if dragging and inp == dragInput then
             local d = inp.Position - startMouse
             target.Position = UDim2.new(
-                startPos.X.Scale, startPos.X.Offset + d.X,
-                startPos.Y.Scale, startPos.Y.Offset + d.Y
+                startPos.X.Scale,
+                startPos.X.Offset + d.X,
+                startPos.Y.Scale,
+                startPos.Y.Offset + d.Y
             )
         end
     end)
 end
 
 -- ─────────────────────────────────────────────────────────────
--- Notification system  (module-level singleton)
+-- Notification system
 -- ─────────────────────────────────────────────────────────────
 local NotifGui, NotifContainer
 
@@ -239,16 +276,16 @@ end
 -- UILibrary:Notify
 -- ─────────────────────────────────────────────────────────────
 --[[
-    Card: 300×60
-    ┌─────────────────────────────────────────┐
-    │████│ Title                              │  y=8   h=18  FontSize=13
-    │ 4px│ message text                       │  y=28  h=24  FontSize=11
-    │████│▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬│  y=58  h=2   timer
-    └─────────────────────────────────────────┘
+    Card 300×60:
+    ┌────────────────────────────────────────────────┐
+    │▓▓▓▓│ Title                                     │  y=8   h=18
+    │ 4px│ message text here                          │  y=28  h=24
+    │▓▓▓▓│▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬▬│  y=58  h=2
+    └────────────────────────────────────────────────┘
 
-    Slide in:  Back.Out  0.3s  — bouncy landing from right
-    Slide out: Quad.Out  0.2s  — smooth clean exit to right
-    Timer:     Linear over duration
+    Card appears instantly at x=0 (no slide animation).
+    Timer bar drains via Linear tween over `duration` seconds.
+    After duration: Card destroyed instantly (no slide out).
 ]]
 function UILibrary:Notify(title, message, ntype, duration)
     EnsureNotifGui()
@@ -257,7 +294,6 @@ function UILibrary:Notify(title, message, ntype, duration)
     title    = title    or "Notification"
     message  = message  or ""
 
-    -- Use a fallback theme for standalone Notify calls
     local notifColors = {
         info    = Color3.fromRGB(75,  75,  75),
         success = Color3.fromRGB(30,  140, 60),
@@ -267,7 +303,6 @@ function UILibrary:Notify(title, message, ntype, duration)
     local accent = notifColors[ntype] or notifColors.info
     local order  = math.floor(os.clock() * 1000) % 2147483647
 
-    -- Wrapper: clips the slide animation
     local Wrapper = New("Frame", {
         Name                  = "Notif_" .. order,
         BackgroundTransparency = 1,
@@ -278,21 +313,22 @@ function UILibrary:Notify(title, message, ntype, duration)
         Parent                = NotifContainer,
     })
 
-    -- Card: starts off-screen right (x=310), slides in with Back.Out bounce
+    -- Card at x=0 immediately — no slide animation
     local Card = New("Frame", {
         Name             = "Card",
         BackgroundColor3 = Color3.fromRGB(16, 16, 16),
         BorderColor3     = Color3.fromRGB(75, 75, 75),
-        Position         = UDim2.new(0, 310, 0, 0),
+        Position         = UDim2.new(0, 0, 0, 0),
         Size             = UDim2.new(1, 0, 1, 0),
         Parent           = Wrapper,
     })
 
-    -- Accent bar: 4×60 full height no border
+    -- Accent bar: 4px wide, full height
     New("Frame", {
         Name             = "Accent",
         BackgroundColor3 = accent,
         BorderSizePixel  = 0,
+        Position         = UDim2.new(0, 0, 0, 0),
         Size             = UDim2.new(0, 4, 1, 0),
         Parent           = Card,
     })
@@ -329,7 +365,7 @@ function UILibrary:Notify(title, message, ntype, duration)
         Parent                = Card,
     })
 
-    -- Timer bar: y=58  h=2  drains left→right over duration
+    -- Timer bar: y=58  h=2  drains linearly over duration
     local TimerBar = New("Frame", {
         Name             = "Timer",
         BackgroundColor3 = accent,
@@ -339,20 +375,13 @@ function UILibrary:Notify(title, message, ntype, duration)
         Parent           = Card,
     })
 
-    -- Slide in with bounce
-    Tween(Card, TI.Bounce(0.3), { Position = UDim2.new(0, 0, 0, 0) })
+    DrainTween(TimerBar, duration)
 
-    -- Drain timer bar linearly
-    TweenService:Create(TimerBar, TI.Linear(duration), { Size = UDim2.new(0, 0, 0, 2) }):Play()
-
-    -- After duration: slide out smoothly then destroy
+    -- Destroy after duration (instant, no slide out)
     task.delay(duration, function()
-        if not Card or not Card.Parent then return end
-        local t = TweenService:Create(Card, TI.Smooth(0.2), { Position = UDim2.new(0, 310, 0, 0) })
-        t:Play()
-        t.Completed:Connect(function()
-            if Wrapper and Wrapper.Parent then Wrapper:Destroy() end
-        end)
+        if Wrapper and Wrapper.Parent then
+            Wrapper:Destroy()
+        end
     end)
 end
 
@@ -363,7 +392,7 @@ function UILibrary:CreateWindow(cfg)
     cfg = cfg or {}
     local toggleKey   = cfg.key   or Enum.KeyCode.RightShift
     local accentColor = Colorways[cfg.theme] or Colorways.red
-    local T           = BuildTheme(accentColor)   -- T = active theme for this window
+    local T           = BuildTheme(accentColor)
 
     local CoreGui = game:GetService("CoreGui")
     do local o = CoreGui:FindFirstChild("_index_") if o then o:Destroy() end end
@@ -375,19 +404,18 @@ function UILibrary:CreateWindow(cfg)
         Parent         = CoreGui,
     })
 
-    -- _frame1: 630×390  no border  centered
-    -- Starts at Size(0,0) → tweens to (630,390) with Back.Out for a bouncy open
+    -- ── _frame1: 630×390  no border  centered ─────────────────
     local Frame1 = New("Frame", {
         Name             = "_frame1",
         BackgroundColor3 = T.Frame1_BG,
         BorderSizePixel  = 0,
         AnchorPoint      = Vector2.new(0.5, 0.5),
         Position         = UDim2.new(0.5, 0, 0.5, 0),
-        Size             = UDim2.new(0, 0, 0, 0),   -- starts collapsed
+        Size             = UDim2.new(0, 630, 0, 390),
         Parent           = Gui,
     })
 
-    -- _frame2: 620×380 at (5,5)  1px border  inner=618×378
+    -- ── _frame2: 620×380  at (5,5)  1px border ────────────────
     local Frame2 = New("Frame", {
         Name             = "_frame2",
         BackgroundColor3 = T.Frame2_BG,
@@ -397,7 +425,8 @@ function UILibrary:CreateWindow(cfg)
         Parent           = Frame1,
     })
 
-    -- __tabs: 608×45 at (6,8)  outer bottom=53
+    -- ── __tabs: 608×45  at (6,8)  1px border ──────────────────
+    --    outer bottom = 8+45 = 53
     local TabBar = New("Frame", {
         Name             = "__tabs",
         BackgroundColor3 = T.TabBar_BG,
@@ -413,7 +442,9 @@ function UILibrary:CreateWindow(cfg)
         Parent        = TabBar,
     })
 
-    -- __tabContent: 608×314 at (6,59)  gap=6px  bottom gap=5px
+    -- ── __tabContent: 608×314  at (6,59)  1px border ──────────
+    --    gap from tab bar: 59 - 53 = 6px ✓
+    --    bottom: 59+314=373, frame2 inner=378, bottom gap=5px ✓
     local ContentArea = New("Frame", {
         Name             = "__tabContent",
         BackgroundColor3 = T.Content_BG,
@@ -424,24 +455,18 @@ function UILibrary:CreateWindow(cfg)
         Parent           = Frame2,
     })
 
-    MakeDraggable(TabBar, Frame1)
+    -- ── Dragging ───────────────────────────────────────────────
+    -- All three handles move Frame1 (the root window frame).
+    -- This lets the user grab the tab bar, the content area border,
+    -- or the outer frame1 margin strip — all move the window.
+    MakeDraggable(Frame1,  Frame1)
+    MakeDraggable(Frame2,  Frame1)
+    MakeDraggable(TabBar,  Frame1)
 
-    -- Window open animation: Size 0→630×390 with Back.Out bounce
-    Tween(Frame1, TI.Bounce(0.35), { Size = UDim2.new(0, 630, 0, 390) })
-
-    -- Menu toggle key
+    -- ── Menu toggle key ────────────────────────────────────────
     UserInputService.InputBegan:Connect(function(inp, processed)
         if not processed and inp.KeyCode == toggleKey then
-            if Frame1.Visible then
-                -- Close: shrink with Smooth
-                local t = TweenService:Create(Frame1, TI.Smooth(0.2), { Size = UDim2.new(0, 0, 0, 0) })
-                t:Play()
-                t.Completed:Connect(function() Frame1.Visible = false end)
-            else
-                -- Open: show then bounce open
-                Frame1.Visible = true
-                Tween(Frame1, TI.Bounce(0.35), { Size = UDim2.new(0, 630, 0, 390) })
-            end
+            Frame1.Visible = not Frame1.Visible
         end
     end)
 
@@ -458,18 +483,8 @@ function UILibrary:CreateWindow(cfg)
         _theme       = T,
     }
 
-    function Window:SetVisible(v)
-        if v then
-            self._frame.Visible = true
-            Tween(self._frame, TI.Bounce(0.35), { Size = UDim2.new(0, 630, 0, 390) })
-        else
-            local t = TweenService:Create(self._frame, TI.Smooth(0.2), { Size = UDim2.new(0, 0, 0, 0) })
-            t:Play()
-            t.Completed:Connect(function() self._frame.Visible = false end)
-        end
-    end
-
-    function Window:Destroy() self._gui:Destroy() end
+    function Window:SetVisible(v) self._frame.Visible = v end
+    function Window:Destroy()    self._gui:Destroy()    end
 
     -- ─────────────────────────────────────────────────────────
     -- AddTab
@@ -477,39 +492,17 @@ function UILibrary:CreateWindow(cfg)
     function Window:AddTab(name)
         local index = #self._tabs + 1
 
-        --[[
-            Tab button: 151×45  BorderSizePixel=0  Font=Code FontSize=14
-            Text Center/Center
-            4×151 + 3×1 = 607px fits 608px bar ✓
-
-            Tab switch animation:
-              On activate → Size pulse from 151×45 to 153×47 then back to 151×45
-              Uses Back.Out 0.12s so it slightly overshoots before settling
-              AnchorPoint(0.5,0.5) would shift position; instead we adjust via
-              Position offset: nudge x by -1 and y by -1 during pulse then restore.
-              Simpler: just tween BackgroundColor3 with Quad.Out — the pulse is
-              actually done on the accent bar growing (see below).
-
-            For the pulse we scale the button size momentarily:
-              normal:  Size(0,151,0,45)
-              pressed: Size(0,154,0,48)  then back to normal
-              This requires AnchorPoint(0.5,1) on each button and adjusting
-              LayoutOrder positioning — too complex with UIListLayout.
-
-            Practical approach: the "pulse" is a quick BackgroundColor3 flash
-            to a slightly lighter accent then fades to the normal accent,
-            combined with a TextColor3 flash to white+1.
-            This reads as a pop/punch without touching Size.
-        ]]
+        -- Tab button: 151×45  BorderSizePixel=0
+        -- 4×151 + 3×1 = 607px fits 608px tab bar ✓
         local Btn = New("TextButton", {
-            Name             = "__tabInactive",
+            Name             = "Tab_" .. name,
             Font             = T.Font,
             Text             = name,
             TextColor3       = T.Text,
             TextSize         = T.FontSize,
             TextXAlignment   = Enum.TextXAlignment.Center,
             TextYAlignment   = Enum.TextYAlignment.Center,
-            TextWrapped      = true,
+            TextWrapped      = false,
             BackgroundColor3 = T.TabInactive_BG,
             BorderSizePixel  = 0,
             Size             = UDim2.new(0, 151, 0, 45),
@@ -518,21 +511,21 @@ function UILibrary:CreateWindow(cfg)
             Parent           = self._tabBar,
         })
 
-        -- Active indicator bar: 2px at bottom of button, accent colour
-        -- Starts invisible (w=0), grows to full width on activate — this IS the punch
+        -- 2px accent bar at the bottom of the active tab button
         local ActiveBar = New("Frame", {
             Name             = "ActiveBar",
             BackgroundColor3 = T.Accent,
             BorderSizePixel  = 0,
-            AnchorPoint      = Vector2.new(0.5, 1),
-            Position         = UDim2.new(0.5, 0, 1, 0),
-            Size             = UDim2.new(0, 0, 0, 2),
+            Position         = UDim2.new(0, 0, 1, -2),
+            Size             = UDim2.new(1, 0, 0, 2),
+            Visible          = false,
             ZIndex           = 2,
             Parent           = Btn,
         })
 
         -- Per-tab ScrollingFrame: fills ContentArea inner (606×312)
-        -- UIPadding 8px → usable 590×296  ScrollBar=2px
+        -- UIPadding 8px all sides → usable 590×296
+        -- ScrollBarThickness=2 Y-only
         local Page = New("ScrollingFrame", {
             BackgroundTransparency = 1,
             BorderSizePixel        = 0,
@@ -540,7 +533,7 @@ function UILibrary:CreateWindow(cfg)
             CanvasSize             = UDim2.new(0, 0, 0, 0),
             AutomaticCanvasSize    = Enum.AutomaticSize.Y,
             ScrollBarThickness     = 2,
-            ScrollBarImageColor3   = T.TabActive_BG,
+            ScrollBarImageColor3   = T.Accent,
             ScrollingDirection     = Enum.ScrollingDirection.Y,
             Visible                = false,
             Parent                 = self._contentArea,
@@ -565,7 +558,7 @@ function UILibrary:CreateWindow(cfg)
 
         -- Left column: 291×auto  x=0
         local LeftCol = New("Frame", {
-            Name                  = "LeftColumn",
+            Name                  = "LeftCol",
             BackgroundTransparency = 1,
             BorderSizePixel       = 0,
             Position              = UDim2.new(0, 0, 0, 0),
@@ -573,11 +566,15 @@ function UILibrary:CreateWindow(cfg)
             AutomaticSize         = Enum.AutomaticSize.Y,
             Parent                = Holder,
         })
-        New("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10), Parent = LeftCol })
+        New("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding   = UDim.new(0, 10),
+            Parent    = LeftCol,
+        })
 
-        -- Right column: 291×auto  x=299  edge=590 ✓
+        -- Right column: 291×auto  x=299  right edge=590 ✓
         local RightCol = New("Frame", {
-            Name                  = "RightColumn",
+            Name                  = "RightCol",
             BackgroundTransparency = 1,
             BorderSizePixel       = 0,
             Position              = UDim2.new(0, 299, 0, 0),
@@ -585,42 +582,49 @@ function UILibrary:CreateWindow(cfg)
             AutomaticSize         = Enum.AutomaticSize.Y,
             Parent                = Holder,
         })
-        New("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 10), Parent = RightCol })
+        New("UIListLayout", {
+            SortOrder = Enum.SortOrder.LayoutOrder,
+            Padding   = UDim.new(0, 10),
+            Parent    = RightCol,
+        })
 
+        -- Tab object
         local Tab = {
-            _btn       = Btn,
-            _bar       = ActiveBar,
-            _page      = Page,
-            _leftCol   = LeftCol,
-            _rightCol  = RightCol,
-            _window    = self,
+            _btn      = Btn,
+            _bar      = ActiveBar,
+            _page     = Page,
+            _leftCol  = LeftCol,
+            _rightCol = RightCol,
+            _window   = self,
         }
 
         function Tab:Select()
+            -- Deactivate all tabs
             for _, t in ipairs(self._window._tabs) do
-                t._page.Visible = false
-                -- Deactivate: fade BG to inactive, shrink bar to 0
-                Tween(t._btn, TI.Smooth(0.12), { BackgroundColor3 = T.TabInactive_BG })
-                Tween(t._bar, TI.Smooth(0.12), { Size = UDim2.new(0, 0, 0, 2) })
+                t._page.Visible          = false
+                t._btn.BackgroundColor3  = T.TabInactive_BG
+                t._bar.Visible           = false
             end
-            self._page.Visible = true
-            -- Activate: BG to accent
-            Tween(self._btn, TI.Smooth(0.12), { BackgroundColor3 = T.TabActive_BG })
-            -- Bar grows to full width with Back.Out bounce — the "punch"
-            Tween(self._bar, TI.Bounce(0.25), { Size = UDim2.new(1, 0, 0, 2) })
-            self._window._activeTab = self
+            -- Activate this tab
+            self._page.Visible          = true
+            self._btn.BackgroundColor3  = T.TabActive_BG
+            self._bar.Visible           = true
+            self._window._activeTab     = self
         end
 
-        Btn.MouseButton1Click:Connect(function() Tab:Select() end)
+        Btn.MouseButton1Click:Connect(function()
+            Tab:Select()
+        end)
 
+        -- Simple hover: lighten inactive bg
         Btn.MouseEnter:Connect(function()
             if self._activeTab ~= Tab then
-                Tween(Btn, TI.Smooth(0.08), { BackgroundColor3 = Color3.fromRGB(42, 42, 42) })
+                Btn.BackgroundColor3 = Color3.fromRGB(42, 42, 42)
             end
         end)
         Btn.MouseLeave:Connect(function()
             if self._activeTab ~= Tab then
-                Tween(Btn, TI.Smooth(0.08), { BackgroundColor3 = T.TabInactive_BG })
+                Btn.BackgroundColor3 = T.TabInactive_BG
             end
         end)
 
@@ -634,22 +638,23 @@ function UILibrary:CreateWindow(cfg)
             side = (side == "right") and "right" or "left"
             local Col = (side == "right") and self._rightCol or self._leftCol
 
-            local sectionOrder = 0
+            -- Count Frame children for LayoutOrder (skip UIListLayout)
+            local order = 0
             for _, c in ipairs(Col:GetChildren()) do
-                if c:IsA("Frame") then sectionOrder += 1 end
+                if c:IsA("Frame") then order += 1 end
             end
 
             local SectionFrame = New("Frame", {
-                Name                  = "Section_" .. sectionName,
+                Name                  = "Sec_" .. sectionName,
                 BackgroundTransparency = 1,
                 BorderSizePixel       = 0,
                 Size                  = UDim2.new(1, 0, 0, 0),
                 AutomaticSize         = Enum.AutomaticSize.Y,
-                LayoutOrder           = sectionOrder,
+                LayoutOrder           = order,
                 Parent                = Col,
             })
 
-            -- Header: 291×20  Title + 1px separator at y=19
+            -- Header: 291×20
             local Header = New("Frame", {
                 Name                  = "Header",
                 BackgroundTransparency = 1,
@@ -664,13 +669,14 @@ function UILibrary:CreateWindow(cfg)
                 Font                  = T.Font,
                 Text                  = string.upper(sectionName),
                 TextColor3            = T.SectionTitle,
-                TextSize              = T.HeaderFontSize,
+                TextSize              = T.HdrSize,
                 TextXAlignment        = Enum.TextXAlignment.Left,
                 TextYAlignment        = Enum.TextYAlignment.Center,
                 Parent                = Header,
             })
+            -- Separator: 1px at y=19 (last pixel of 20px header)
             New("Frame", {
-                Name             = "Separator",
+                Name             = "Sep",
                 BackgroundColor3 = T.Separator,
                 BorderSizePixel  = 0,
                 Position         = UDim2.new(0, 0, 0, 19),
@@ -678,7 +684,7 @@ function UILibrary:CreateWindow(cfg)
                 Parent           = Header,
             })
 
-            -- Body: y=21  PaddingTop=5  elements gap=4px
+            -- Body: starts at y=21, 5px top padding, 4px gap between elements
             local Body = New("Frame", {
                 Name                  = "Body",
                 BackgroundTransparency = 1,
@@ -688,25 +694,28 @@ function UILibrary:CreateWindow(cfg)
                 AutomaticSize         = Enum.AutomaticSize.Y,
                 Parent                = SectionFrame,
             })
-            New("UIListLayout", { SortOrder = Enum.SortOrder.LayoutOrder, Padding = UDim.new(0, 4), Parent = Body })
-            New("UIPadding", { PaddingTop = UDim.new(0, 5), Parent = Body })
+            New("UIListLayout", {
+                SortOrder = Enum.SortOrder.LayoutOrder,
+                Padding   = UDim.new(0, 4),
+                Parent    = Body,
+            })
+            New("UIPadding", {
+                PaddingTop = UDim.new(0, 5),
+                Parent     = Body,
+            })
 
             local elementCount = 0
-            local Section = { _body = Body }
+            local Section      = { _body = Body }
 
             -- ── AddToggle ─────────────────────────────────────
             --[[
-                Row 291×26  transparent
-                Box 14×14  x=0  y=6  centred: (26-14)/2=6 ✓
-                Lbl x=20  w=271  h=26  Left/Center
-
-                Click animation on Box:
-                  Size punch: 14×14 → 11×11 → 14×14
-                  Two sequential Quad.Out tweens, 0.07s each
-                  Position adjusts to keep centred during shrink:
-                    normal:  pos x=0  y=6
-                    shrunk:  pos x=1.5  y=7.5  (centre stays same: 0+7=7 → 1.5+5.5=7 ✓)
-                  Then colour tweens simultaneously.
+                Row  291×26   BG transparent
+                Box  14×14    pos x=4  y=6     4px left margin
+                              (26-14)/2 = 6px vertical centre ✓
+                              Border RGB(75,75,75)
+                              BG: unchecked=RGB(30,30,30) checked=accent
+                Lbl  pos x=24  Size(1,-24,1,0)
+                              Font=Code FontSize=14   Left/Center
             ]]
             function Section:AddToggle(label, default, callback)
                 default  = (default == true)
@@ -720,125 +729,108 @@ function UILibrary:CreateWindow(cfg)
                     BorderSizePixel       = 0,
                     Size                  = UDim2.new(1, 0, 0, 26),
                     LayoutOrder           = elementCount,
-                    ZIndex                = 1,
                     Parent                = Body,
                 })
 
-                -- Box: 14×14  centred at y=6  (26-14)/2=6 ✓
+                -- Checkbox: 14×14  x=4  y=6
                 local Box = New("TextButton", {
-                    Name             = "Checkbox",
+                    Name             = "Box",
                     BackgroundColor3 = state and T.Checkbox_On or T.Checkbox_BG,
                     BorderColor3     = T.Checkbox_Bdr,
-                    Position         = UDim2.new(0, 0, 0, 6),
+                    Position         = UDim2.new(0, 4, 0, 6),
                     Size             = UDim2.new(0, 14, 0, 14),
                     Text             = "",
                     AutoButtonColor  = false,
-                    ZIndex           = 1,
                     Parent           = Row,
                 })
 
+                -- Label: x=24  full remaining width  Font=Code FontSize=14
                 New("TextLabel", {
                     BackgroundTransparency = 1,
                     BorderSizePixel       = 0,
-                    Position              = UDim2.new(0, 20, 0, 0),
-                    Size                  = UDim2.new(1, -20, 1, 0),
+                    Position              = UDim2.new(0, 24, 0, 0),
+                    Size                  = UDim2.new(1, -24, 1, 0),
                     Font                  = T.Font,
                     Text                  = label,
                     TextColor3            = T.Text,
                     TextSize              = T.FontSize,
                     TextXAlignment        = Enum.TextXAlignment.Left,
                     TextYAlignment        = Enum.TextYAlignment.Center,
-                    ZIndex                = 1,
                     Parent                = Row,
                 })
 
-                local animating = false
                 local function Apply(val, silent)
-                    state = val
-                    -- Colour flip: Quad.Out 0.1s smooth
-                    Tween(Box, TI.Smooth(0.1), {
-                        BackgroundColor3 = state and T.Checkbox_On or T.Checkbox_BG
-                    })
+                    state                = val
+                    Box.BackgroundColor3 = state and T.Checkbox_On or T.Checkbox_BG
                     if not silent then callback(state) end
                 end
 
-                local function PunchAndApply()
-                    if animating then return end
-                    animating = true
-                    -- Shrink: 14×14 → 10×10, shift pos to keep centred (add 2px x/y)
-                    Tween(Box, TI.Smooth(0.07), {
-                        Size     = UDim2.new(0, 10, 0, 10),
-                        Position = UDim2.new(0, 2, 0, 8),
-                    })
-                    task.delay(0.07, function()
-                        Apply(not state, false)
-                        -- Bounce back: 10×10 → 14×14 with Back.Out overshoot
-                        Tween(Box, TI.Bounce(0.15), {
-                            Size     = UDim2.new(0, 14, 0, 14),
-                            Position = UDim2.new(0, 0, 0, 6),
-                        })
-                        task.delay(0.18, function() animating = false end)
-                    end)
-                end
-
-                Box.MouseButton1Click:Connect(PunchAndApply)
+                Box.MouseButton1Click:Connect(function() Apply(not state, false) end)
 
                 return {
-                    Set = function(_, v) Apply(v, true) end,
-                    Get = function(_)    return state    end,
+                    Set = function(_, v) Apply(v, true)  end,
+                    Get = function(_)    return state     end,
                 }
             end
 
             -- ── AddDropdown ───────────────────────────────────
             --[[
-                Wrapper 291×auto  AutomaticSize=Y  transparent  ClipsDescendants=true
-                DHeader 291×26  BG RGB(30,30,30)  Border RGB(75,75,75)
-                  SelLabel x=6  Size(1,-26,1,0)  Left/Center  TextTruncate
-                  Arrow    x=(1,-20)  w=20  h=full  "v"/"^"  FontSize=12  Center
-                List 291×listHeight  pos y=27  BG RGB(22,22,22)  Border RGB(75,75,75)
-                  starts Size(1,0,0,0), opens to Size(1,0,0,listHeight) Back.Out 0.25s
-                  closes to Size(1,0,0,0) Quad.Out 0.15s, then Visible=false
+                KEY DESIGN: Row has a FIXED explicit Size.Y.
+                  Closed: Size.Y = 26
+                  Open:   Size.Y = 26 + 1 + (#options × 22)
+                            = header(26) + border_gap(1) + list(n×22)
+                No AutomaticSize on Row — avoids the gap bug.
+                No ClipsDescendants needed (no animation).
+                List frame is simply Visible=true/false.
 
-                Each item 291×22  pos y=(i-1)*22  BG RGB(22,22,22)
-                  hover: Quad.Out 0.08s → RGB(38,38,38)
-                  ItemLbl full size  Left/Center  PaddingLeft=6  selected=accent
+                Row          291×26(closed) or 291×(27+n×22)(open)
+                DHeader      291×26   BG RGB(30,30,30)   Border RGB(75,75,75) 1px
+                  SelLabel   pos x=6   Size(1,-26,1,0)
+                             Font=Code FontSize=14   Left/Center   TextTruncate
+                  Arrow      pos (1,-20,0,0)  Size(0,20,1,0)
+                             "v"/"^"   Font=Code FontSize=12   Center   BG transparent
+                List         pos y=27   Size(1,0,0,n×22)
+                             BG RGB(22,22,22)   Border RGB(75,75,75) 1px
+                             Visible=false when closed
+                  Item[i]    pos y=(i-1)×22   Size(1,0,0,22)   BG RGB(22,22,22)
+                    ItemBtn  full size   Font=Code FontSize=14   Left/Center
+                             PaddingLeft=6   AutoButtonColor=false
+                             TextColor3: T.Text normal, T.Dropdown_Sel if selected
             ]]
             function Section:AddDropdown(label, options, default, callback)
-                options  = options  or {}
-                callback = callback or function() end
-                local selected = default or options[1] or ""
-                local isOpen   = false
-                local animLock = false
-                elementCount  += 1
+                options      = options  or {}
+                callback     = callback or function() end
+                local selected   = default or options[1] or ""
+                local isOpen     = false
+                elementCount    += 1
 
-                local listHeight = #options * 22
+                local CLOSED_H  = 26
+                local LIST_H    = #options * 22
+                local OPEN_H    = CLOSED_H + 1 + LIST_H  -- 1px gap between header border and list
 
-                -- Wrapper: transparent, grows with content, clips list animation
-                local Wrapper = New("Frame", {
+                -- Row: fixed height, NO AutomaticSize
+                local Row = New("Frame", {
                     Name                  = "Dropdown_" .. label,
                     BackgroundTransparency = 1,
                     BorderSizePixel       = 0,
-                    Size                  = UDim2.new(1, 0, 0, 0),
-                    AutomaticSize         = Enum.AutomaticSize.Y,
+                    Size                  = UDim2.new(1, 0, 0, CLOSED_H),
                     LayoutOrder           = elementCount,
-                    ClipsDescendants      = true,
-                    ZIndex                = 2,
+                    ClipsDescendants      = true,   -- clip list when closed
                     Parent                = Body,
                 })
 
-                -- DHeader: 291×26  BG RGB(30,30,30)  Border RGB(75,75,75)
+                -- DHeader: full width of Row × 26px
                 local DHeader = New("Frame", {
                     Name             = "DHeader",
                     BackgroundColor3 = T.Dropdown_BG,
                     BorderColor3     = T.Separator,
                     Size             = UDim2.new(1, 0, 0, 26),
-                    ZIndex           = 2,
-                    Parent           = Wrapper,
+                    Parent           = Row,
                 })
 
-                -- SelLabel: x=6  Size(1,-26,1,0)  fills DHeader minus arrow width
+                -- SelLabel: x=6  fills DHeader minus 20px arrow on right
                 local SelLabel = New("TextLabel", {
-                    Name                  = "Selected",
+                    Name                  = "SelLabel",
                     BackgroundTransparency = 1,
                     BorderSizePixel       = 0,
                     Position              = UDim2.new(0, 6, 0, 0),
@@ -850,11 +842,10 @@ function UILibrary:CreateWindow(cfg)
                     TextXAlignment        = Enum.TextXAlignment.Left,
                     TextYAlignment        = Enum.TextYAlignment.Center,
                     TextTruncate          = Enum.TextTruncate.AtEnd,
-                    ZIndex                = 2,
                     Parent                = DHeader,
                 })
 
-                -- Arrow: rightmost 20px  "v"/"^"  FontSize=12  Center
+                -- Arrow: rightmost 20px of DHeader
                 local Arrow = New("TextButton", {
                     Name                  = "Arrow",
                     BackgroundTransparency = 1,
@@ -868,37 +859,35 @@ function UILibrary:CreateWindow(cfg)
                     TextXAlignment        = Enum.TextXAlignment.Center,
                     TextYAlignment        = Enum.TextYAlignment.Center,
                     AutoButtonColor       = false,
-                    ZIndex                = 2,
                     Parent                = DHeader,
                 })
 
-                -- List: starts at Size(1,0,0,0), animates to listHeight on open
-                -- pos y=27 = 26(header) + 1(border gap)
+                -- List: pos y=27  height=LIST_H  hidden when closed
+                -- y=27 = 26(header outer) + 1(gap to clear header's bottom border)
                 local List = New("Frame", {
                     Name             = "List",
                     BackgroundColor3 = T.Dropdown_List,
                     BorderColor3     = T.Separator,
                     Position         = UDim2.new(0, 0, 0, 27),
-                    Size             = UDim2.new(1, 0, 0, 0),   -- starts closed
-                    Visible          = true,                     -- always visible, size drives it
-                    ClipsDescendants = true,
-                    ZIndex           = 3,
-                    Parent           = Wrapper,
+                    Size             = UDim2.new(1, 0, 0, LIST_H),
+                    Visible          = false,
+                    Parent           = Row,
                 })
 
                 -- Build items
                 local itemRefs = {}
                 for i, opt in ipairs(options) do
                     local Item = New("Frame", {
-                        Name             = "Item_" .. opt,
+                        Name             = "Item_" .. i,
                         BackgroundColor3 = T.Dropdown_List,
                         BorderSizePixel  = 0,
-                        Position         = UDim2.new(0, 0, 0, (i-1)*22),
+                        Position         = UDim2.new(0, 0, 0, (i - 1) * 22),
                         Size             = UDim2.new(1, 0, 0, 22),
-                        ZIndex           = 3,
                         Parent           = List,
                     })
-                    local ItemLbl = New("TextButton", {
+
+                    local ItemBtn = New("TextButton", {
+                        Name                  = "Btn",
                         BackgroundTransparency = 1,
                         BorderSizePixel       = 0,
                         Size                  = UDim2.new(1, 0, 1, 0),
@@ -909,62 +898,79 @@ function UILibrary:CreateWindow(cfg)
                         TextXAlignment        = Enum.TextXAlignment.Left,
                         TextYAlignment        = Enum.TextYAlignment.Center,
                         AutoButtonColor       = false,
-                        ZIndex                = 3,
                         Parent                = Item,
                     })
-                    New("UIPadding", { PaddingLeft = UDim.new(0, 6), Parent = ItemLbl })
-                    itemRefs[opt] = ItemLbl
+                    New("UIPadding", {
+                        PaddingLeft = UDim.new(0, 6),
+                        Parent      = ItemBtn,
+                    })
 
+                    itemRefs[opt] = ItemBtn
+
+                    -- Hover: instant BG swap
                     Item.MouseEnter:Connect(function()
-                        Tween(Item, TI.Smooth(0.08), { BackgroundColor3 = T.Dropdown_Hover })
+                        Item.BackgroundColor3 = T.Dropdown_Hover
                     end)
                     Item.MouseLeave:Connect(function()
-                        Tween(Item, TI.Smooth(0.08), { BackgroundColor3 = T.Dropdown_List })
+                        Item.BackgroundColor3 = T.Dropdown_List
                     end)
 
-                    ItemLbl.MouseButton1Click:Connect(function()
-                        if itemRefs[selected] then itemRefs[selected].TextColor3 = T.Text end
-                        selected = opt
-                        SelLabel.Text = selected
-                        ItemLbl.TextColor3 = T.Dropdown_Sel
+                    -- Select
+                    ItemBtn.MouseButton1Click:Connect(function()
+                        -- Reset old selection colour
+                        if itemRefs[selected] then
+                            itemRefs[selected].TextColor3 = T.Text
+                        end
+                        selected              = opt
+                        SelLabel.Text         = selected
+                        ItemBtn.TextColor3    = T.Dropdown_Sel
 
-                        -- Close with smooth animation
-                        isOpen = false
-                        Arrow.Text = "v"
-                        Tween(List, TI.Smooth(0.15), { Size = UDim2.new(1, 0, 0, 0) })
+                        -- Close dropdown
+                        isOpen       = false
+                        Arrow.Text   = "v"
+                        List.Visible = false
+                        Row.Size     = UDim2.new(1, 0, 0, CLOSED_H)
 
                         callback(selected)
                     end)
                 end
 
-                local function ToggleList()
-                    if animLock then return end
-                    animLock = true
-                    isOpen = not isOpen
+                -- Toggle open/close — instant, no animation
+                local function Toggle()
+                    isOpen     = not isOpen
                     Arrow.Text = isOpen and "^" or "v"
-
                     if isOpen then
-                        -- Open: Back.Out bounce — overshoots listHeight slightly
-                        Tween(List, TI.Bounce(0.25), { Size = UDim2.new(1, 0, 0, listHeight) })
-                        task.delay(0.25, function() animLock = false end)
+                        List.Visible = true
+                        Row.Size     = UDim2.new(1, 0, 0, OPEN_H)
                     else
-                        -- Close: Quad.Out smooth
-                        Tween(List, TI.Smooth(0.15), { Size = UDim2.new(1, 0, 0, 0) })
-                        task.delay(0.15, function() animLock = false end)
+                        List.Visible = false
+                        Row.Size     = UDim2.new(1, 0, 0, CLOSED_H)
                     end
                 end
 
+                -- Clicking the header row or arrow both toggle
                 DHeader.InputBegan:Connect(function(inp)
-                    if inp.UserInputType == Enum.UserInputType.MouseButton1 then ToggleList() end
+                    if inp.UserInputType == Enum.UserInputType.MouseButton1 then
+                        Toggle()
+                    end
                 end)
-                Arrow.MouseButton1Click:Connect(ToggleList)
+                Arrow.MouseButton1Click:Connect(function()
+                    Toggle()
+                end)
 
                 return {
                     Set = function(_, v)
                         if itemRefs[selected] then itemRefs[selected].TextColor3 = T.Text end
-                        selected = v
+                        selected      = v
                         SelLabel.Text = v
                         if itemRefs[v] then itemRefs[v].TextColor3 = T.Dropdown_Sel end
+                        -- Close if open
+                        if isOpen then
+                            isOpen       = false
+                            Arrow.Text   = "v"
+                            List.Visible = false
+                            Row.Size     = UDim2.new(1, 0, 0, CLOSED_H)
+                        end
                         callback(selected)
                     end,
                     Get = function(_) return selected end,
