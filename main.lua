@@ -2037,6 +2037,574 @@ function UILibrary:CreateWindow(cfg)
                 })
             end
 
+            function Section:AddButton(label, callback, tooltip)
+    callback = callback or function() end
+
+    -- ── Row ──────────────────────────────────────────────────────────────────
+    -- 292×26, same height as Toggle / Dropdown header
+    local Row = New("Frame", {
+        Name                   = "Btn_" .. label,
+        BackgroundTransparency = 1,
+        BorderSizePixel        = 0,
+        Size                   = UDim2.new(1, 0, 0, 26),
+        LayoutOrder            = NextOrder(),
+        Parent                 = Body,
+    })
+
+    -- ── Clickable face ───────────────────────────────────────────────────────
+    -- Fills the entire row. Uses Dropdown_BG so it sits visually at the same
+    -- depth as a closed dropdown header — correct for CSGO-style flat buttons.
+    local Btn = New("TextButton", {
+        Name             = "Face",
+        BackgroundColor3 = T.Dropdown_BG,
+        BorderColor3     = T.Separator,
+        Size             = UDim2.new(1, 0, 1, 0),
+        Font             = T.Font,
+        Text             = label,
+        TextColor3       = T.Text,
+        TextSize         = T.FontSize,
+        TextXAlignment   = Enum.TextXAlignment.Center,
+        TextYAlignment   = Enum.TextYAlignment.Center,
+        AutoButtonColor  = false,
+        Parent           = Row,
+    })
+
+    -- ── Instant hover (no tween — CSGO blocky feel) ──────────────────────────
+    Btn.MouseEnter:Connect(function()
+        Btn.BackgroundColor3 = T.Dropdown_Hover
+    end)
+    Btn.MouseLeave:Connect(function()
+        Btn.BackgroundColor3 = T.Dropdown_BG
+    end)
+
+    -- ── Click ────────────────────────────────────────────────────────────────
+    Btn.MouseButton1Click:Connect(function()
+        callback()
+    end)
+
+    AttachTooltip(Row, tooltip)
+
+    return {
+        SetLabel = function(_, v) Btn.Text = tostring(v) end,
+        GetLabel = function(_)    return Btn.Text         end,
+    }
+end
+
+
+-- ─────────────────────────────────────────────────────────────────────────────
+-- AddColorPicker
+--
+-- LAYOUT  (all px, column width = 292)
+--
+--   Row outer (ClipsDescendants = true)
+--     y=0   Header bar          292×26
+--              Label            x=6, w=250  (right edge 256)
+--              Color swatch     14×14  at x=254 (right-anchored: pos(1,-38,0,6))
+--              Arrow ▾/▴        20×26  at x=272 (right-anchored: pos(1,-20,0,0))
+--                               gaps: label→swatch=4, swatch→arrow=4
+--
+--     y=26  Panel               292×182
+--       [inside Panel, left/right pad = 6px → inner width = 280px]
+--
+--       y=4   SV canvas         280×140  (pos(0,6,0,4) in Panel)
+--                 Base frame    full 280×140, colored = HSV(h,1,1)
+--                 White overlay full 280×140, UIGradient transparency 0→1 L→R
+--                 Black overlay full 280×140, UIGradient transparency 1→0 T→B
+--                 Crosshair     6×6, accent border
+--
+--       y=148 Hue bar           280×10   (pos(0,6,0,148) in Panel)
+--                 Rainbow grad  full 280×10, UIGradient 7 hue stops
+--                 Hue cursor    2×14, white BG, pos(x,-2) clips 2px above/below
+--
+--       y=162 RGB display row   280×16   (pos(0,6,0,162) in Panel)
+--                 R box         89×16  x=0
+--                 G box         89×16  x=93   (89+4)
+--                 B box         94×16  x=186  (89+4+89+4) → width fills to 280 ✓
+--
+--     TOTAL open height = 26 + 182 = 208px
+--
+-- HSV model:
+--   h ∈ [0,1]   (hue bar)
+--   s ∈ [0,1]   (SV canvas x-axis: left=0 white, right=1 full color)
+--   v ∈ [0,1]   (SV canvas y-axis: top=1 bright, bottom=0 black)
+--
+-- USAGE
+--   Sect:AddColorPicker("Chams Color", Color3.fromRGB(255,0,0),
+--       function(c) print(c) end, "Pick a color")
+--
+-- RETURNS  { Set, Get }
+--   Set(Color3)  — updates picker state silently (no callback)
+--   Get()        → Color3
+-- ─────────────────────────────────────────────────────────────────────────────
+function Section:AddColorPicker(label, default, callback, tooltip)
+    callback = callback or function() end
+    default  = default  or Color3.fromRGB(255, 0, 0)
+
+    -- ── Internal state ───────────────────────────────────────────────────────
+    -- Store H, S, V so each drag only changes its own axis.
+    local function Color3ToHSV(c)
+        -- Returns h,s,v each in [0,1]
+        local r, g, b = c.R, c.G, c.B
+        local mx = math.max(r, g, b)
+        local mn = math.min(r, g, b)
+        local d  = mx - mn
+        local h, s, v
+        v = mx
+        s = (mx == 0) and 0 or (d / mx)
+        if d == 0 then
+            h = 0
+        elseif mx == r then
+            h = ((g - b) / d) % 6
+            h = h / 6
+        elseif mx == g then
+            h = ((b - r) / d + 2) / 6
+        else
+            h = ((r - g) / d + 4) / 6
+        end
+        return h, s, v
+    end
+
+    local function HSVtoColor3(h, s, v)
+        -- Standard HSV→RGB, returns Color3
+        local i = math.floor(h * 6)
+        local f = h * 6 - i
+        local p = v * (1 - s)
+        local q = v * (1 - f * s)
+        local t = v * (1 - (1 - f) * s)
+        local r, g, b
+        local seg = i % 6
+        if     seg == 0 then r, g, b = v, t, p
+        elseif seg == 1 then r, g, b = q, v, p
+        elseif seg == 2 then r, g, b = p, v, t
+        elseif seg == 3 then r, g, b = p, q, v
+        elseif seg == 4 then r, g, b = t, p, v
+        else                 r, g, b = v, p, q
+        end
+        return Color3.new(
+            math.max(0, math.min(1, r)),
+            math.max(0, math.min(1, g)),
+            math.max(0, math.min(1, b))
+        )
+    end
+
+    local curH, curS, curV = Color3ToHSV(default)
+    local isOpen = false
+
+    local CLOSED_H = 26
+    local OPEN_H   = 208
+    -- Panel inner dimensions
+    local INNER_W  = 280   -- 292 - 6(left) - 6(right)
+    local SV_H     = 140
+    local HUE_H    = 10
+    local RGB_H    = 16
+
+    -- ── Outer Row (ClipsDescendants clips the expanding panel) ───────────────
+    local Row = New("Frame", {
+        Name             = "CP_" .. label,
+        BackgroundTransparency = 1,
+        BorderSizePixel  = 0,
+        Size             = UDim2.new(1, 0, 0, CLOSED_H),
+        LayoutOrder      = NextOrder(),
+        ClipsDescendants = true,
+        Parent           = Body,
+    })
+
+    -- ── Header bar (292×26) ──────────────────────────────────────────────────
+    local DHeader = New("Frame", {
+        Name             = "DHeader",
+        BackgroundColor3 = T.Dropdown_BG,
+        BorderColor3     = T.Separator,
+        Size             = UDim2.new(1, 0, 0, 26),
+        Parent           = Row,
+    })
+
+    -- Label: left-padded 6px
+    -- Size(1,-46,1,0) → width = 292-46 = 246px, right edge = 6+246 = 252
+    -- Swatch left edge = 292-38 = 254  →  gap = 254-252 = 2px ✓
+    New("TextLabel", {
+        Name                   = "PickerLabel",
+        BackgroundTransparency = 1,
+        BorderSizePixel        = 0,
+        Position               = UDim2.new(0, 6, 0, 0),
+        Size                   = UDim2.new(1, -46, 1, 0),
+        Font                   = T.Font,
+        Text                   = label,
+        TextColor3             = T.Text,
+        TextSize               = T.FontSize,
+        TextXAlignment         = Enum.TextXAlignment.Left,
+        TextYAlignment         = Enum.TextYAlignment.Center,
+        TextTruncate           = Enum.TextTruncate.AtEnd,
+        Parent                 = DHeader,
+    })
+
+    -- Color swatch preview: 14×14, right-anchored
+    -- pos(1,-38,0,6): left edge at 292-38=254, right edge at 254+14=268
+    -- vertical center: (26-14)/2 = 6 ✓
+    local Swatch = New("Frame", {
+        Name             = "Swatch",
+        BackgroundColor3 = default,
+        BorderColor3     = T.Separator,
+        Position         = UDim2.new(1, -38, 0, 6),
+        Size             = UDim2.new(0, 14, 0, 14),
+        ZIndex           = 2,
+        Parent           = DHeader,
+    })
+
+    -- Arrow toggle: 20×26, right-anchored
+    -- pos(1,-20,0,0): left edge at 292-20=272, gap from swatch right (268) = 4px ✓
+    local Arrow = New("TextButton", {
+        Name                   = "Arrow",
+        BackgroundTransparency = 1,
+        BorderSizePixel        = 0,
+        Position               = UDim2.new(1, -20, 0, 0),
+        Size                   = UDim2.new(0, 20, 1, 0),
+        Font                   = T.Font,
+        Text                   = "▾",
+        TextColor3             = T.SubText,
+        TextSize               = 12,
+        TextXAlignment         = Enum.TextXAlignment.Center,
+        TextYAlignment         = Enum.TextYAlignment.Center,
+        AutoButtonColor        = false,
+        ZIndex                 = 2,
+        Parent                 = DHeader,
+    })
+
+    -- ── Panel (292×182, starts at y=26 inside Row) ───────────────────────────
+    local Panel = New("Frame", {
+        Name             = "Panel",
+        BackgroundColor3 = T.Dropdown_BG,
+        BorderColor3     = T.Separator,
+        Position         = UDim2.new(0, 0, 0, 26),
+        Size             = UDim2.new(1, 0, 0, 182),
+        Parent           = Row,
+    })
+
+    -- ── SV Canvas (280×140, at pos(6,4) inside Panel) ────────────────────────
+    -- y inside Panel = 4  →  y inside Row = 26+4 = 30 ✓
+    local SVCanvas = New("Frame", {
+        Name             = "SVCanvas",
+        BackgroundColor3 = Color3.new(1, 0, 0),  -- updated dynamically
+        BorderColor3     = T.Separator,
+        Position         = UDim2.new(0, 6, 0, 4),
+        Size             = UDim2.new(0, INNER_W, 0, SV_H),
+        ClipsDescendants = true,
+        Parent           = Panel,
+    })
+
+    -- White-to-transparent gradient (left=white, right=transparent)
+    -- Simulates the saturation axis: left side fully desaturated, right fully saturated
+    local WhiteOverlay = New("Frame", {
+        Name                   = "WhiteOverlay",
+        BackgroundColor3       = Color3.new(1, 1, 1),
+        BackgroundTransparency = 0,
+        BorderSizePixel        = 0,
+        Size                   = UDim2.new(1, 0, 1, 0),
+        ZIndex                 = 2,
+        Parent                 = SVCanvas,
+    })
+    New("UIGradient", {
+        -- Transparency goes 0 (opaque white) → 1 (transparent) left to right
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 0),
+            NumberSequenceKeypoint.new(1, 1),
+        }),
+        -- Rotation=0 means the gradient flows left→right ✓
+        Rotation = 0,
+        Parent   = WhiteOverlay,
+    })
+
+    -- Black-to-transparent gradient (bottom=black, top=transparent)
+    -- Simulates the value axis: bottom fully dark, top fully bright
+    local BlackOverlay = New("Frame", {
+        Name                   = "BlackOverlay",
+        BackgroundColor3       = Color3.new(0, 0, 0),
+        BackgroundTransparency = 0,
+        BorderSizePixel        = 0,
+        Size                   = UDim2.new(1, 0, 1, 0),
+        ZIndex                 = 3,
+        Parent                 = SVCanvas,
+    })
+    New("UIGradient", {
+        -- Transparency goes 1 (transparent) at top → 0 (opaque black) at bottom
+        -- Rotation=90: gradient flows top→bottom
+        Transparency = NumberSequence.new({
+            NumberSequenceKeypoint.new(0, 1),
+            NumberSequenceKeypoint.new(1, 0),
+        }),
+        Rotation = 90,
+        Parent   = BlackOverlay,
+    })
+
+    -- SV crosshair cursor: 6×6, accent-colored border, transparent fill
+    -- Positioned at: x = s*(280-1)-3, y = (1-v)*(140-1)-3  (clamped)
+    local SVCursor = New("Frame", {
+        Name                   = "SVCursor",
+        BackgroundTransparency = 1,
+        BorderColor3           = T.Accent,
+        BorderSizePixel        = 1,
+        Size                   = UDim2.new(0, 6, 0, 6),
+        ZIndex                 = 4,
+        Parent                 = SVCanvas,
+    })
+
+    -- ── Hue Bar (280×10, at pos(6,148) inside Panel) ─────────────────────────
+    -- y inside Panel = 148  →  y inside Row = 26+148 = 174... wait
+    -- Panel is at Row y=26. Panel-internal y=148.  Row y = 26+148 = 174.
+    -- But our layout says hue at y=174 in Row. Panel-internal y = 174-26 = 148 ✓
+    local HueBar = New("Frame", {
+        Name             = "HueBar",
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderColor3     = T.Separator,
+        Position         = UDim2.new(0, 6, 0, 148),
+        Size             = UDim2.new(0, INNER_W, 0, HUE_H),
+        ClipsDescendants = false,  -- cursor extends 2px above/below, needs to show
+        ZIndex           = 2,
+        Parent           = Panel,
+    })
+
+    -- Rainbow hue gradient: 7 keypoints covering the full hue circle
+    New("UIGradient", {
+        Color = ColorSequence.new({
+            ColorSequenceKeypoint.new(0/6, Color3.fromRGB(255,   0,   0)),  -- Red
+            ColorSequenceKeypoint.new(1/6, Color3.fromRGB(255, 255,   0)),  -- Yellow
+            ColorSequenceKeypoint.new(2/6, Color3.fromRGB(  0, 255,   0)),  -- Green
+            ColorSequenceKeypoint.new(3/6, Color3.fromRGB(  0, 255, 255)),  -- Cyan
+            ColorSequenceKeypoint.new(4/6, Color3.fromRGB(  0,   0, 255)),  -- Blue
+            ColorSequenceKeypoint.new(5/6, Color3.fromRGB(255,   0, 255)),  -- Magenta
+            ColorSequenceKeypoint.new(6/6, Color3.fromRGB(255,   0,   0)),  -- Red (wraps)
+        }),
+        Rotation = 0,  -- left→right ✓
+        Parent   = HueBar,
+    })
+
+    -- Hue cursor: 2×14, white, sits centered on the bar (extends 2px above/below)
+    -- ZIndex 3 so it renders above the gradient frame
+    local HueCursor = New("Frame", {
+        Name             = "HueCursor",
+        BackgroundColor3 = Color3.new(1, 1, 1),
+        BorderSizePixel  = 0,
+        Size             = UDim2.new(0, 2, 0, 14),
+        Position         = UDim2.new(0, 0, 0, -2),  -- updated dynamically
+        ZIndex           = 3,
+        Parent           = HueBar,
+    })
+
+    -- ── RGB Display Row (280×16, at pos(6,162) inside Panel) ─────────────────
+    -- Panel-internal y=162 → Row y = 26+162 = 188 ✓
+    -- Three boxes: R=89px, G=89px, B=94px, each with 4px gap
+    -- Total: 89+4+89+4+94 = 280 ✓
+    local RGBRow = New("Frame", {
+        Name                   = "RGBRow",
+        BackgroundTransparency = 1,
+        BorderSizePixel        = 0,
+        Position               = UDim2.new(0, 6, 0, 162),
+        Size                   = UDim2.new(0, INNER_W, 0, RGB_H),
+        Parent                 = Panel,
+    })
+
+    local function MakeRGBBox(channel, xPos, width)
+        local Box = New("Frame", {
+            Name             = "Box_" .. channel,
+            BackgroundColor3 = T.Slider_ValBox,
+            BorderColor3     = T.Separator,
+            Position         = UDim2.new(0, xPos, 0, 0),
+            Size             = UDim2.new(0, width, 1, 0),
+            Parent           = RGBRow,
+        })
+        local Lbl = New("TextLabel", {
+            BackgroundTransparency = 1,
+            BorderSizePixel        = 0,
+            Size                   = UDim2.new(1, 0, 1, 0),
+            Font                   = T.Font,
+            Text                   = channel .. ": 0",
+            TextColor3             = T.SubText,
+            TextSize               = 11,
+            TextXAlignment         = Enum.TextXAlignment.Center,
+            TextYAlignment         = Enum.TextYAlignment.Center,
+            Parent                 = Box,
+        })
+        return Lbl
+    end
+
+    --   R: x=0,   w=89
+    --   G: x=93,  w=89   (89+4=93)
+    --   B: x=186, w=94   (89+4+89+4=186 ; 280-186=94) ✓
+    local RLbl = MakeRGBBox("R",   0, 89)
+    local GLbl = MakeRGBBox("G",  93, 89)
+    local BLbl = MakeRGBBox("B", 186, 94)
+
+    -- ── Update helpers ───────────────────────────────────────────────────────
+
+    -- Positions the SV crosshair for given s,v
+    -- Clamp: x in [0, INNER_W-6=274], y in [0, SV_H-6=134]
+    local function UpdateSVCursor(s, v)
+        local x = math.floor(s * (INNER_W - 1) - 3 + 0.5)
+        local y = math.floor((1 - v) * (SV_H - 1) - 3 + 0.5)
+        x = math.max(0, math.min(INNER_W - 6, x))
+        y = math.max(0, math.min(SV_H - 6, y))
+        SVCursor.Position = UDim2.new(0, x, 0, y)
+    end
+
+    -- Positions the hue cursor for given h
+    -- Clamp: x in [0, INNER_W-2=278]
+    local function UpdateHueCursor(h)
+        local x = math.floor(h * (INNER_W - 1) - 1 + 0.5)
+        x = math.max(0, math.min(INNER_W - 2, x))
+        HueCursor.Position = UDim2.new(0, x, 0, -2)
+    end
+
+    -- Rebuilds everything from curH, curS, curV
+    local function Refresh(silent)
+        -- 1. Base frame color = pure hue
+        SVCanvas.BackgroundColor3 = HSVtoColor3(curH, 1, 1)
+        -- 2. Move crosshair
+        UpdateSVCursor(curS, curV)
+        -- 3. Move hue cursor
+        UpdateHueCursor(curH)
+        -- 4. Compute final color
+        local col = HSVtoColor3(curH, curS, curV)
+        -- 5. Update swatch
+        Swatch.BackgroundColor3 = col
+        -- 6. Update RGB labels
+        local r = math.floor(col.R * 255 + 0.5)
+        local g = math.floor(col.G * 255 + 0.5)
+        local b = math.floor(col.B * 255 + 0.5)
+        RLbl.Text = "R: " .. r
+        GLbl.Text = "G: " .. g
+        BLbl.Text = "B: " .. b
+        -- 7. Fire callback
+        if not silent then callback(col) end
+    end
+
+    -- Initialize display
+    Refresh(true)
+
+    -- ── Open / Close ─────────────────────────────────────────────────────────
+    local function SetOpen(open)
+        isOpen     = open
+        Arrow.Text = open and "▴" or "▾"
+        Row.Size   = UDim2.new(1, 0, 0, open and OPEN_H or CLOSED_H)
+    end
+
+    DHeader.InputBegan:Connect(function(inp)
+        if inp.UserInputType ~= Enum.UserInputType.MouseButton1 then return end
+        -- Don't toggle if click landed on the arrow button
+        local mp = UserInputService:GetMouseLocation()
+        local ap = Arrow.AbsolutePosition
+        local as = Arrow.AbsoluteSize
+        if mp.X >= ap.X and mp.X <= ap.X + as.X
+        and mp.Y >= ap.Y and mp.Y <= ap.Y + as.Y then
+            return
+        end
+        SetOpen(not isOpen)
+    end)
+    Arrow.MouseButton1Click:Connect(function() SetOpen(not isOpen) end)
+
+    -- ── SV Canvas drag ───────────────────────────────────────────────────────
+    -- Uses the same "read AbsolutePosition fresh per frame" pattern as Fix #3
+    local svDragging   = false
+    local svMoveConn   = nil
+    local svReleaseConn = nil
+
+    local function SVDragFrom(inp)
+        local ap = SVCanvas.AbsolutePosition
+        local as = SVCanvas.AbsoluteSize
+        curS = Clamp((inp.Position.X - ap.X) / as.X, 0, 1)
+        curV = 1 - Clamp((inp.Position.Y - ap.Y) / as.Y, 0, 1)
+        Refresh(false)
+    end
+
+    local function StartSVDrag(inp)
+        svDragging = true
+        SVDragFrom(inp)
+
+        if svMoveConn    then svMoveConn:Disconnect()    end
+        if svReleaseConn then svReleaseConn:Disconnect() end
+
+        svMoveConn = UserInputService.InputChanged:Connect(function(i)
+            if not svDragging then return end
+            if i.UserInputType ~= Enum.UserInputType.MouseMovement
+            and i.UserInputType ~= Enum.UserInputType.Touch then return end
+            SVDragFrom(i)
+        end)
+
+        svReleaseConn = UserInputService.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+                svDragging = false
+                if svMoveConn    then svMoveConn:Disconnect();    svMoveConn    = nil end
+                if svReleaseConn then svReleaseConn:Disconnect(); svReleaseConn = nil end
+            end
+        end)
+    end
+
+    SVCanvas.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            StartSVDrag(inp)
+        end
+    end)
+
+    -- ── Hue Bar drag ─────────────────────────────────────────────────────────
+    local hueDragging    = false
+    local hueMoveConn    = nil
+    local hueReleaseConn = nil
+
+    local function HueDragFrom(inp)
+        local ap = HueBar.AbsolutePosition
+        local as = HueBar.AbsoluteSize
+        curH = Clamp((inp.Position.X - ap.X) / as.X, 0, 1)
+        Refresh(false)
+    end
+
+    local function StartHueDrag(inp)
+        hueDragging = true
+        HueDragFrom(inp)
+
+        if hueMoveConn    then hueMoveConn:Disconnect()    end
+        if hueReleaseConn then hueReleaseConn:Disconnect() end
+
+        hueMoveConn = UserInputService.InputChanged:Connect(function(i)
+            if not hueDragging then return end
+            if i.UserInputType ~= Enum.UserInputType.MouseMovement
+            and i.UserInputType ~= Enum.UserInputType.Touch then return end
+            HueDragFrom(i)
+        end)
+
+        hueReleaseConn = UserInputService.InputEnded:Connect(function(i)
+            if i.UserInputType == Enum.UserInputType.MouseButton1
+            or i.UserInputType == Enum.UserInputType.Touch then
+                hueDragging = false
+                if hueMoveConn    then hueMoveConn:Disconnect();    hueMoveConn    = nil end
+                if hueReleaseConn then hueReleaseConn:Disconnect(); hueReleaseConn = nil end
+            end
+        end)
+    end
+
+    HueBar.InputBegan:Connect(function(inp)
+        if inp.UserInputType == Enum.UserInputType.MouseButton1
+        or inp.UserInputType == Enum.UserInputType.Touch then
+            StartHueDrag(inp)
+        end
+    end)
+
+    AttachTooltip(DHeader, tooltip)
+
+    -- ── Public API ───────────────────────────────────────────────────────────
+    return {
+        -- Set(Color3)  — update picker silently (does not fire callback)
+        Set = function(_, c)
+            c = c or Color3.new(1, 0, 0)
+            curH, curS, curV = Color3ToHSV(c)
+            Refresh(true)
+        end,
+        -- Get() → Color3
+        Get = function(_)
+            return HSVtoColor3(curH, curS, curV)
+        end,
+    }
+end
+
             return Section
         end  -- AddSection
 
