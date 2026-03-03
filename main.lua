@@ -724,6 +724,9 @@ function UILibrary:CreateWindow(cfg)
     -- ─────────────────────────────────────────────────────────────────────────
     -- Watermark
     -- ─────────────────────────────────────────────────────────────────────────
+    local oldWmk = CoreGui:FindFirstChild("_wmk_")
+    if oldWmk then oldWmk:Destroy() end
+
     local WmkGui = New("ScreenGui", {
         Name           = "_wmk_",
         ZIndexBehavior = Enum.ZIndexBehavior.Sibling,
@@ -731,29 +734,34 @@ function UILibrary:CreateWindow(cfg)
         ResetOnSpawn   = false,
         Enabled        = true,
     })
-    -- FIX #10: safe parent
     SafeParent(WmkGui)
 
+    -- Outer shell: invisible border-less wrapper, used as drag target.
+    -- h=24 = 1px top gap + 22px strip + 1px bottom gap (gives clickable margin).
     local WmkF1 = New("Frame", {
         Name             = "WmkF1",
-        BackgroundColor3 = T.Frame1_BG,
+        BackgroundTransparency = 1,
         BorderSizePixel  = 0,
         AnchorPoint      = Vector2.new(0, 0),
         Position         = UDim2.new(0, 10, 0, 10),
-        Size             = UDim2.new(0, 0, 0, 28),
+        Size             = UDim2.new(0, 0, 0, 24),
         AutomaticSize    = Enum.AutomaticSize.X,
         Parent           = WmkGui,
     })
 
+    -- Inner visible strip: 22px tall, 1px border, dark background, AutoX width.
     local WmkF2 = New("Frame", {
         Name             = "WmkF2",
         BackgroundColor3 = T.Frame2_BG,
         BorderColor3     = T.Frame2_Bdr,
         Position         = UDim2.new(0, 1, 0, 1),
-        Size             = UDim2.new(1, -2, 0, 26),
+        Size             = UDim2.new(1, -2, 0, 22),
         AutomaticSize    = Enum.AutomaticSize.X,
+        ClipsDescendants = false,
         Parent           = WmkF1,
     })
+
+    -- Horizontal list layout — cells placed flush with no gaps.
     New("UIListLayout", {
         FillDirection     = Enum.FillDirection.Horizontal,
         SortOrder         = Enum.SortOrder.LayoutOrder,
@@ -762,78 +770,82 @@ function UILibrary:CreateWindow(cfg)
         Parent            = WmkF2,
     })
 
-    local wmkOrder = 0
-    local function WmkSpacer(w)
-        wmkOrder += 1
-        New("Frame", {
-            BackgroundTransparency = 1,
-            BorderSizePixel        = 0,
-            Size                   = UDim2.new(0, w, 0, 26),
-            LayoutOrder            = wmkOrder,
-            Parent                 = WmkF2,
-        })
-    end
-    local function WmkDivider()
-        WmkSpacer(4)
-        wmkOrder += 1
-        New("Frame", {
-            BackgroundColor3 = T.Separator,
+    -- ── Helper: make one info cell ────────────────────────────────────────────
+    -- Returns the TextLabel so callers can update .Text and .TextColor3.
+    --   bgColor : background Color3
+    --   padLR   : left+right UIPadding in px
+    --   text    : initial text
+    --   order   : LayoutOrder
+    local wmkCellOrder = 0
+    local function WmkCell(bgColor, padLR, text, isNameCell)
+        wmkCellOrder += 1
+        local Cell = New("Frame", {
+            Name             = "Cell_" .. wmkCellOrder,
+            BackgroundColor3 = bgColor,
             BorderSizePixel  = 0,
-            Size             = UDim2.new(0, 1, 0, 14),
-            LayoutOrder      = wmkOrder,
+            Size             = UDim2.new(0, 0, 0, 22),
+            AutomaticSize    = Enum.AutomaticSize.X,
+            LayoutOrder      = wmkCellOrder,
             Parent           = WmkF2,
         })
-        WmkSpacer(4)
-    end
-    local function WmkLabel(text, size, color)
-        wmkOrder += 1
-        return New("TextLabel", {
+        New("UIPadding", {
+            PaddingLeft   = UDim.new(0, padLR),
+            PaddingRight  = UDim.new(0, padLR),
+            PaddingTop    = UDim.new(0, 0),
+            PaddingBottom = UDim.new(0, 0),
+            Parent        = Cell,
+        })
+        local Lbl = New("TextLabel", {
+            Name                   = "Lbl",
             BackgroundTransparency = 1,
             BorderSizePixel        = 0,
-            Size                   = UDim2.new(0, 0, 0, 26),
+            -- AutomaticSize drives the cell width; height fills the cell.
+            Size                   = UDim2.new(0, 0, 1, 0),
             AutomaticSize          = Enum.AutomaticSize.X,
-            Font                   = T.Font,
+            Font                   = T.Font,   -- Enum.Font.Code
             Text                   = text,
-            TextColor3             = color,
-            TextSize               = size,
-            TextXAlignment         = Enum.TextXAlignment.Left,
+            TextColor3             = isNameCell and Color3.new(1, 1, 1) or T.SubText,
+            TextSize               = 11,
+            TextXAlignment         = Enum.TextXAlignment.Center,
             TextYAlignment         = Enum.TextYAlignment.Center,
-            LayoutOrder            = wmkOrder,
-            Parent                 = WmkF2,
+            Parent                 = Cell,
+        })
+        return Lbl, Cell
+    end
+
+    -- ── Helper: 1px divider ───────────────────────────────────────────────────
+    local function WmkDiv()
+        wmkCellOrder += 1
+        New("Frame", {
+            Name             = "Div_" .. wmkCellOrder,
+            BackgroundColor3 = T.Frame2_Bdr,
+            BorderSizePixel  = 0,
+            Size             = UDim2.new(0, 1, 0, 22),
+            LayoutOrder      = wmkCellOrder,
+            Parent           = WmkF2,
         })
     end
 
-    wmkOrder += 1
-    New("Frame", {
-        Name             = "AccentBar",
-        BackgroundColor3 = T.Accent,
-        BorderSizePixel  = 0,
-        Size             = UDim2.new(0, 4, 0, 26),
-        LayoutOrder      = wmkOrder,
-        Parent           = WmkF2,
-    })
-    WmkSpacer(6)
-    WmkLabel(scriptName, 13, T.Text)
-    WmkDivider()
-    local localName = (Players.LocalPlayer and Players.LocalPlayer.Name) or "Player"
-    WmkLabel(localName, 11, T.SubText)
+    -- ── Cell A: Script name  (accent background) ──────────────────────────────
+    -- Uppercase, white text on accent-colored cell — the iconic CSGO tag look.
+    -- 8px left+right padding.
+    WmkCell(T.Accent, 8, string.upper(scriptName), true)
 
+    -- ── Cell B: Player name  (dark background) ────────────────────────────────
+    -- Shows the LocalPlayer username in SubText color.
+    -- 7px left+right padding.
+    WmkDiv()
+    local localName = (Players.LocalPlayer and Players.LocalPlayer.Name) or "Player"
+    WmkCell(T.Frame2_BG, 7, localName, false)
+
+    -- ── Cell C: FPS counter  (dark background, conditional) ───────────────────
     local FpsLabel = nil
     if showFPS then
-        WmkDivider()
-        FpsLabel = WmkLabel("FPS: --", 11, T.SubText)
+        WmkDiv()
+        local fpsLbl = WmkCell(T.Frame2_BG, 7, "FPS --", false)
+        FpsLabel = fpsLbl
         FpsLabel.Name = "FPS"
-    end
 
-    local ClockLabel = nil
-    if showClock then
-        WmkDivider()
-        ClockLabel = WmkLabel("00:00", 11, T.SubText)
-        ClockLabel.Name = "Clock"
-    end
-    WmkSpacer(8)
-
-    if FpsLabel then
         local frames, timer = 0, 0
         RunService.RenderStepped:Connect(function(dt)
             frames += 1
@@ -841,6 +853,7 @@ function UILibrary:CreateWindow(cfg)
             if timer >= 0.5 then
                 local fps = math.floor(frames / timer + 0.5)
                 frames, timer = 0, 0
+                -- Color coding: green=good, amber=ok, red=bad
                 local col
                 if fps >= 60 then
                     col = Color3.fromRGB(30, 160, 60)
@@ -849,13 +862,21 @@ function UILibrary:CreateWindow(cfg)
                 else
                     col = Color3.fromRGB(180, 40, 40)
                 end
-                FpsLabel.Text       = "FPS: " .. fps
+                -- "FPS 142" — no colon, authentic CSGO style
+                FpsLabel.Text       = "FPS " .. fps
                 FpsLabel.TextColor3 = col
             end
         end)
     end
 
-    if ClockLabel then
+    -- ── Cell D: Clock  (dark background, conditional) ─────────────────────────
+    local ClockLabel = nil
+    if showClock then
+        WmkDiv()
+        local clkLbl = WmkCell(T.Frame2_BG, 7, "00:00", false)
+        ClockLabel = clkLbl
+        ClockLabel.Name = "Clock"
+
         local lastClock = ""
         RunService.Heartbeat:Connect(function()
             local t = os.date("*t")
@@ -867,10 +888,14 @@ function UILibrary:CreateWindow(cfg)
         end)
     end
 
+    -- ── Draggability ──────────────────────────────────────────────────────────
+    -- Both WmkF1 and WmkF2 are registered as drag handles so the user can grab
+    -- anywhere on the strip. getEnabled guard prevents drag when main UI is hidden.
     local function wmkEnabled() return Frame1.Visible end
     MakeDraggable(WmkF1, WmkF1, wmkEnabled)
     MakeDraggable(WmkF2, WmkF1, wmkEnabled)
 
+    -- ── Toggle key ────────────────────────────────────────────────────────────
     UserInputService.InputBegan:Connect(function(inp, processed)
         if not processed and inp.KeyCode == toggleKey then
             Frame1.Visible = not Frame1.Visible
